@@ -1,0 +1,9 @@
+00 MAP.JN1   mt= 51 tiles_bytes= 6528 trans=13 items= 11 doors= 9 enemies=  0 spawn=(96,40) strings=18
+01 1.JN1     mt= 56 tiles_bytes= 7168 trans= 2 items= 52 doors= 1 enemies= 41 spawn=(112,160) strings=6
+02 2.JN1     mt= 87 tiles_bytes=11136 trans= 2 items= 29 doors= 2 enemies= 37 spawn=(64,928) strings=4
+03 3.JN1     mt= 33 tiles_bytes= 4224 trans= 2 items= 56 doors= 4 enemies= 28 spawn=(1936,736) strings=10
+04 4.JN1     mt= 27 tiles_bytes= 3456 trans= 2 items= 20 doors= 6 enemies=  4 spawn=(1056,928) strings=6
+05 6.JN1     mt= 30 tiles_bytes= 3840 trans= 3 items= 34 doors=10 enemies= 25 spawn=(704,496) strings=8
+06 9.JN1     mt= 77 tiles_bytes= 9856 trans= 2 items= 42 doors= 9 enemies= 31 spawn=(32,224) strings=6
+07 50.JN1    mt= 23 tiles_bytes= 2944 trans= 0 items=  3 doors= 0 enemies=  0 spawn=(96,912) strings=52
+08 INTRO.JN1 mt= 53 tiles_bytes= 6784 trans= 0 items= 13 doors= 0 enemies=  0 spawn=(1960,944) strings=137

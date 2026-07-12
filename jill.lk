@@ -1,0 +1,51 @@
+-mjwx
+-i jill.ihx
+-b _CODE = 0x0200
+-b _DATA = 0xc000
+-b_BANK2=0x28000
+-b_BANK3=0x38000
+-b_BANK4=0x48000
+-b_BANK5=0x58000
+-b_BANK6=0x68000
+-b_BANK7=0x78000
+-b_BANK8=0x88000
+-b_BANK9=0x98000
+-b_BANK10=0xA8000
+-b_BANK11=0xB8000
+-b_BANK12=0xC8000
+-b_BANK13=0xD8000
+-b_BANK14=0xE8000
+-b_BANK15=0xF8000
+-b_BANK16=0x108000
+-b_BANK17=0x118000
+-b_BANK18=0x128000
+-b_BANK19=0x138000
+-b_BANK20=0x148000
+-k /tmp/sdcc-4.2.0/bin/../share/sdcc/lib/z80
+-k /usr/local/share/sdcc/lib/z80
+-l SMSlib/SMSlib.lib
+-l z80
+crt0_sms.rel
+build/main.rel
+build/game_data.rel
+build/bank2.rel
+build/bank3.rel
+build/bank4.rel
+build/bank5.rel
+build/bank6.rel
+build/bank7.rel
+build/bank8.rel
+build/bank9.rel
+build/bank10.rel
+build/bank11.rel
+build/bank12.rel
+build/bank13.rel
+build/bank14.rel
+build/bank15.rel
+build/bank16.rel
+build/bank17.rel
+build/bank18.rel
+build/bank19.rel
+build/bank20.rel
+
+-e
