@@ -1,46 +1,91 @@
-# Jill of the Jungle — Sega Master System devkitSMS port (work-in-progress)
+# Jill of the Jungle — Sega Master System port (devkitSMS)
 
-This workspace contains a compileable Sega Master System/devkitSMS conversion
-scaffold for the Jill of the Jungle shareware data files.  It does **not**
-vendor Epic's original copyrighted assets; `make assets` extracts data from a
-local legally obtained copy (the archive downloaded in `../jill-source/ep1` in
-this workspace).
+A Sega Master System conversion of Epic MegaGames' *Jill of the Jungle*
+(Episode 1), built with devkitSMS / SMSlib / SDCC.
 
-Current status:
-
-* Parses Jill `.JN1` maps, `JILL.DMA`, `JILL1.SHA`, and the VGA palette from
-  `JILL.EXE`.
-* Converts all Episode 1 maps present in the shareware archive to SMS 4bpp
-  background tiles, metatile maps, collision flags, spawn points and checkpoint
-  transitions.
-* Builds a real SMS ROM (`jill.sms`) with devkitSMS/SMSlib/SDCC.
-* Implements a minimal side-view engine: scrolling map renderer, Jill player
-  movement, gravity/jump/collision, and checkpoint-based level transitions.
-
-Known gaps before this can honestly be called “fully playable”:
-
-* Object/enemy behaviours, switches, doors, keys, morph forms, lifts, water,
-  collectibles, score/health and audio are not yet implemented.
-* Sprite art mapping is provisional (Jill frame extraction only; enemies are
-  not animated or active).
-* Rendering uses a simple full-screen redraw on coarse camera movement rather
-  than the optimized ring-buffer streaming used by `ck1-sms`.
+This repository contains **no copyrighted Epic assets**. `make assets` extracts
+maps, tiles, sprites and the palette from a local, legally obtained copy of the
+shareware release and generates the `gen/` data.
 
 ## Build
 
 ```sh
-# SDCC must be on PATH. If needed, see tools/get_sdcc_4_2.sh.
-make assets test jill.sms
+# SDCC must be on PATH (Debian/Ubuntu: apt install sdcc; or see tools/get_sdcc_4_2.sh)
+make assets     # convert the original data files -> gen/
+make            # -> jill.sms (336 KB, Sega mapper, 21 banks)
+make playtest   # automated playability gate (see below)
 ```
 
-To use a different Jill data directory:
+`JILL_DATA=/path/to/JILL1_FILES make assets` selects a different data directory.
+
+## What the engine implements
+
+* **Data conversion** — `.JN1` maps, `JILL.DMA` metatiles/collision flags,
+  `JILL1.SHA` shapes and the VGA palette from `JILL.EXE` are converted to SMS
+  4bpp tiles, 16x16 metatiles, collision flags, spawn points, item/enemy/door
+  object lists and inter-level transitions. All 9 Episode 1 maps are converted
+  and banked across the ROM.
+* **Renderer** — hardware-scrolled background with ring-buffer column/row
+  streaming (only the newly exposed strip is redrawn as the camera moves), plus
+  sprite compositing for Jill, items, enemies and projectiles.
+* **Player** — acceleration/friction, gravity, variable-height jump, 16x24
+  collision box, walk/jump animation with per-frame sprite tile streaming.
+* **Terrain interaction** — solid blocks, one-way platforms (`JF_PLAT`),
+  **vine climbing** (`JF_VINE`: attach, climb in 4 directions, jump off),
+  **water** (`JF_WATER`: buoyancy, slow sinking, swim strokes, halved movement
+  speed) and **deadly tiles** (`JF_DEADLY`).
+* **Items** — pickups drive real state: food restores health, plus gems, the red
+  key, and the knife (which enables the weapon).
+* **Combat** — throwable knife projectile that kills enemies and is absorbed by
+  walls; enemies with walking, flying and static-trap behaviours; contact
+  damage with knockback and invincibility frames.
+* **Doors** — jewel/key doors open on contact when the matching item is held,
+  stamping the neighbouring background metatile over the door and updating
+  collision.
+* **Progression** — checkpoint-based level transitions (edge-triggered, so
+  arriving inside a zone doesn't bounce you straight back), a map/level return
+  system, health, 3 lives, respawn, and game over (resets progress and returns
+  to the overworld map).
+* **Audio** — PSG sound effects for jump, pickup, throw, hurt and doors.
+
+## Automated playtesting
+
+The ROM is playtested **by machine, not by hand**. `tools/smstest/` is a small
+headless Master System emulator (Z80 + Sega mapper + VDP + pads) that boots the
+real `jill.sms`, presses buttons, and asserts on live game state. Because SDCC
+emits a NoICE symbol file, tests refer to engine variables *by name*:
+
+```
+hold up
+waituntil climbing == 1 300 w1
+run 200
+expect py < 90 s16          # she actually moved up the vine
+```
+
+`tests/playtest.txt` drives 14 end-to-end scenarios covering boot, walking,
+jumping, item pickup, level transitions (including the re-entry edge case),
+vine climbing, water physics, throwing the knife to kill an enemy, contact
+damage, death/respawn, and game over. It also renders frames and fails if the
+screen comes back blank — a guard that caught two real cases where screenshots
+were being taken while the VDP was still off mid level-load.
 
 ```sh
-JILL_DATA=/path/to/JILL1_FILES make assets
+make playtest     # exit status != 0 if any assertion fails -> usable as a CI gate
 ```
 
-## Tests
+Screenshots land in `shots/`. `tools/smstest/test_signedcmp` is a unit test for
+the emulator's own Z80 signed-comparison flag handling, so a failing game test
+can be trusted to mean a game bug rather than an emulator bug.
 
-`make test` runs converter/data validation.  `tools/playtest_static.py` is a
-static playability-gate placeholder: it verifies that maps, transitions, spawns
-and collision data were produced and reports the still-missing runtime systems.
+`make test` additionally runs the converter/data validation in
+`tools/test_jill_data.py`, and `tools/extract_test_coords.py` dumps real map
+coordinates (transitions, items, enemies, vine/water/deadly cells) for authoring
+new test scenarios.
+
+## Known limitations
+
+* Morph forms (bird/fish/frog), lifts and moving platforms, in-game text/message
+  boxes and the score/HUD are not implemented.
+* Enemy AI is a behavioural approximation grouped by object type rather than a
+  faithful reimplementation of each original object's script.
+* Background music is not implemented (sound effects only).

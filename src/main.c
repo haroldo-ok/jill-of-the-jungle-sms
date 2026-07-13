@@ -34,12 +34,16 @@
 #define FALL_MAX 1280
 
 static const LevelDesc *ld;
-static unsigned char cur_level;
-static int px, py;
-static int vx, vy;
+/* Exported (non-static) so the automated playtest harness can inspect and
+   drive the game via the SDCC .noi symbol table. */
+unsigned char cur_level;
+int px, py;
+int vx, vy;
 static unsigned int cam_x, cam_y;
 static int sx_acc, sy_acc;
-static unsigned char on_ground;
+unsigned char on_ground;
+unsigned char climbing;      /* attached to a vine */
+unsigned char in_water;
 static unsigned char face_right;
 static unsigned char cam_tx, cam_ty;     /* camera in 8x8 subtiles */
 static unsigned char old_cam_tx, old_cam_ty;
@@ -47,22 +51,27 @@ static unsigned char pframe, cur_pframe, anim_t;
 static unsigned int pend_col, pend_row;
 static unsigned int prev_keys;
 static unsigned char trigger_cool;
+static unsigned char trans_latch;   /* 1 while player stands in any transition zone */
 static unsigned char redraw_needed;
 
-static unsigned char n_items;
-static unsigned int item_x[MAX_ITEMS], item_y[MAX_ITEMS];
-static unsigned char item_type[MAX_ITEMS], item_param[MAX_ITEMS], item_taken[MAX_ITEMS];
-static unsigned char has_crystal, has_red_key, has_weapon;
-static unsigned char player_health, hurt_t;
+unsigned char n_items;
+unsigned int item_x[MAX_ITEMS], item_y[MAX_ITEMS];
+unsigned char item_type[MAX_ITEMS], item_param[MAX_ITEMS];
+unsigned char item_taken[MAX_ITEMS];
+unsigned char has_crystal, has_red_key, has_weapon;
+unsigned char player_health, lives, gems;
+unsigned char items_collected, enemies_killed;
+static unsigned char hurt_t;
 static unsigned char b_active, b_right;
 static int b_x, b_y;
 static unsigned int return_x, return_y;
 static unsigned char return_valid;
 
-static unsigned char n_enemies;
+unsigned char n_enemies;
 static int en_x[MAX_ENEMIES], en_y[MAX_ENEMIES];
 static signed int en_vx[MAX_ENEMIES], en_vy[MAX_ENEMIES];
-static unsigned char en_type[MAX_ENEMIES], en_alive[MAX_ENEMIES], en_phase[MAX_ENEMIES];
+static unsigned char en_type[MAX_ENEMIES], en_phase[MAX_ENEMIES];
+unsigned char en_alive[MAX_ENEMIES];
 
 static unsigned char n_doors;
 static unsigned int door_x[MAX_DOORS], door_y[MAX_DOORS];
@@ -72,6 +81,47 @@ static unsigned char n_ovr;
 static unsigned char ovr_x[MAX_OVR], ovr_y[MAX_OVR], ovr_mt[MAX_OVR];
 
 static unsigned int row_off[MAP_H];
+
+/* ------------------------------------------------------------------ */
+/* Minimal PSG sound effects (channel 0 tone + channel 3 noise).       */
+__sfr __at 0x7F PSGPort;
+
+#define SFX_NONE   0
+#define SFX_JUMP   1
+#define SFX_PICKUP 2
+#define SFX_HURT   3
+#define SFX_THROW  4
+#define SFX_DOOR   5
+
+static unsigned char sfx_kind, sfx_t;
+
+static void sfx_play(unsigned char kind) {
+    sfx_kind = kind;
+    sfx_t = 12;
+}
+
+static void psg_tone0(unsigned int f, unsigned char att) {
+    PSGPort = (unsigned char)(0x80 | (f & 0x0F));
+    PSGPort = (unsigned char)((f >> 4) & 0x3F);
+    PSGPort = (unsigned char)(0x90 | (att & 0x0F));
+}
+
+static void sfx_update(void) {
+    unsigned int f;
+    if (!sfx_t) return;
+    sfx_t--;
+    if (!sfx_t) { PSGPort = 0x9F; PSGPort = 0xFF; return; }  /* silence */
+    switch (sfx_kind) {
+    case SFX_JUMP:   f = 200u + (unsigned int)sfx_t * 30u;  psg_tone0(f, 4); break;
+    case SFX_PICKUP: f = 620u - (unsigned int)sfx_t * 40u;  psg_tone0(f, 3); break;
+    case SFX_HURT:   PSGPort = (unsigned char)(0xE0 | 0x06);            /* noise */
+                     PSGPort = (unsigned char)(0xF0 | (12 - sfx_t < 12 ? (unsigned char)(sfx_t) : 0)); break;
+    case SFX_THROW:  f = 150u + (unsigned int)sfx_t * 12u;  psg_tone0(f, 6); break;
+    case SFX_DOOR:   f = 900u - (unsigned int)sfx_t * 55u;  psg_tone0(f, 4); break;
+    default: break;
+    }
+}
+/* ------------------------------------------------------------------ */
 
 static unsigned char clamp_u8_int(int v, int lo, int hi) {
     if (v < lo) return (unsigned char)lo;
@@ -361,6 +411,8 @@ static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy) {
     pend_col = pend_row = 0xFFFFu;
     pframe = cur_pframe = anim_t = 0;
     b_active = 0;
+    climbing = 0;
+    in_water = 0;
     redraw_needed = 1;
     update_camera();
     draw_screen();
@@ -368,11 +420,13 @@ static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy) {
     build_sprites();
     SMS_copySpritestoSAT();
     trigger_cool = 30;
+    trans_latch = 1;   /* assume arrival may be inside a zone; require exit first */
     SMS_displayOn();
 }
 
 static void check_transitions(void) {
     unsigned char i;
+    unsigned char inside = 0;
     const unsigned int *t;
     if (trigger_cool) { trigger_cool--; return; }
     SMS_mapROMBank(ld->data_bank);
@@ -384,6 +438,8 @@ static void check_transitions(void) {
         t += 7;
         if ((unsigned int)(px + 13) >= x && (unsigned int)(px + 2) <= x + w &&
             (unsigned int)(py + 23) >= y && (unsigned int)(py + 2) <= y + h) {
+            inside = 1;
+            if (trans_latch) break;   /* still standing where we arrived */
             if (cur_level == 0 && target != 0) {
                 return_x = (unsigned int)px; return_y = (unsigned int)py; return_valid = 1;
             } else if (target == 0 && return_valid) {
@@ -393,6 +449,7 @@ static void check_transitions(void) {
             return;
         }
     }
+    trans_latch = inside;
 }
 
 static void check_items(void) {
@@ -404,7 +461,13 @@ static void check_items(void) {
         if (px + 13 >= ix && px + 2 <= ix + 15 &&
             py + 23 >= iy && py + 2 <= iy + 15) {
             item_taken[i] = 1;
-            if (item_type[i] == 33) has_crystal = 1;
+            items_collected++;
+            sfx_play(SFX_PICKUP);
+            if (item_type[i] == 1) {                 /* food: restore health */
+                if (player_health < 8) player_health += 2;
+                if (player_health > 8) player_health = 8;
+            }
+            if (item_type[i] == 33) { has_crystal = 1; gems++; }
             if (item_type[i] == 14) has_red_key = 1;
             if (item_type[i] == 2)  has_weapon = 1;
             if (item_type[i] == 28 && (item_param[i] == 2 || item_param[i] == 8)) has_weapon = 1;
@@ -416,6 +479,7 @@ static void open_door(unsigned char i) {
     unsigned char mx, my, repl;
     if (door_open[i]) return;
     door_open[i] = 1;
+    sfx_play(SFX_DOOR);
     mx = (unsigned char)(door_x[i] >> 4);
     my = (unsigned char)(door_y[i] >> 4);
     /* Map jewel doors are represented as one solid MAPDOOR metatile.  Stamp
@@ -442,9 +506,23 @@ static void check_doors(void) {
     }
 }
 
+static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy);
+
 static void respawn_player(void) {
+    if (lives) lives--;
+    if (!lives) {
+        /* Game over: reset progress and restart on the overworld map. */
+        lives = 3;
+        gems = 0;
+        has_crystal = has_red_key = has_weapon = 0;
+        items_collected = 0;
+        player_health = 8; hurt_t = 90;
+        load_level_at(0, 0, 0);
+        return;
+    }
     px = (int)ld->spawn_x; py = (int)ld->spawn_y - 24;
     vx = vy = sx_acc = sy_acc = 0;
+    climbing = 0;
     player_health = 8; hurt_t = 90;
     cam_x = cam_y = 0; cam_tx = cam_ty = 0;
     update_camera();
@@ -455,7 +533,9 @@ static void player_hurt(int source_x) {
     if (hurt_t) return;
     if (player_health) player_health--;
     if (!player_health) { respawn_player(); return; }
+    sfx_play(SFX_HURT);
     hurt_t = 90;
+    climbing = 0;
     vx = (px < source_x) ? -760 : 760;
     vy = -520;
     on_ground = 0;
@@ -493,6 +573,8 @@ static void update_enemies(void) {
         if (px + 13 >= en_x[i] && px + 2 <= en_x[i] + 15 && py + 23 >= en_y[i] && py + 2 <= en_y[i] + 15) player_hurt(en_x[i]);
         if (b_active && b_x + 15 >= en_x[i] && b_x <= en_x[i] + 15 && b_y + 15 >= en_y[i] && b_y <= en_y[i] + 15) {
             en_alive[i] = 0; b_active = 0;
+            enemies_killed++;
+            sfx_play(SFX_HURT);
         }
     }
 }
@@ -500,6 +582,7 @@ static void update_enemies(void) {
 static void spawn_weapon(void) {
     if (!has_weapon || b_active) return;
     b_active = 1;
+    sfx_play(SFX_THROW);
     b_right = face_right;
     b_x = px + (face_right ? 14 : -14);
     b_y = py + 8;
@@ -535,32 +618,94 @@ static void upload_player_frame(void) {
     cur_pframe = pframe;
 }
 
+static unsigned char flags_at_body(void) {
+    return flag_at_px(px + 8, py + 8) | flag_at_px(px + 8, py + 18);
+}
+
+static void check_deadly(void) {
+    unsigned char f = flag_at_px(px + 4, py + 6)  | flag_at_px(px + 11, py + 6) |
+                      flag_at_px(px + 4, py + 22) | flag_at_px(px + 11, py + 22);
+    if (f & JF_DEADLY) player_hurt(px - 8);
+}
+
 static void update_player(unsigned int keys, unsigned int pressed) {
+    unsigned char body = flags_at_body();
+    in_water = (body & JF_WATER) ? 1 : 0;
+
     if (hurt_t) hurt_t--;
+
+    /* --- vine climbing -------------------------------------------- */
+    if (climbing) {
+        if (!(body & JF_VINE)) {
+            climbing = 0;                    /* climbed off the vine */
+        } else {
+            vx = 0; vy = 0;
+            if (keys & PORT_A_KEY_UP)    py -= 1;
+            if (keys & PORT_A_KEY_DOWN)  py += 1;
+            if (keys & PORT_A_KEY_LEFT)  { px -= 1; face_right = 0; }
+            if (keys & PORT_A_KEY_RIGHT) { px += 1; face_right = 1; }
+            if (pressed & PORT_A_KEY_1) {    /* jump off the vine */
+                climbing = 0;
+                vy = JUMP_V;
+                sfx_play(SFX_JUMP);
+            } else {
+                /* landing on solid ground also detaches */
+                unsigned char g = flag_at_px(px + 4, py + 24) | flag_at_px(px + 11, py + 24);
+                if ((g & (JF_SOLID | JF_PLAT)) && (keys & PORT_A_KEY_DOWN)) climbing = 0;
+                if (pressed & PORT_A_KEY_2) spawn_weapon();
+                choose_player_frame();
+                check_deadly();
+                return;
+            }
+        }
+    }
+    if (!climbing && (body & JF_VINE) &&
+        (keys & (PORT_A_KEY_UP | PORT_A_KEY_DOWN))) {
+        climbing = 1;
+        vx = vy = sx_acc = sy_acc = 0;
+        on_ground = 0;
+    }
+
+    /* --- horizontal ------------------------------------------------ */
     if (keys & PORT_A_KEY_LEFT) {
         vx -= on_ground ? WALK_ACC : AIR_ACC;
         if (vx < -WALK_MAX) vx = -WALK_MAX;
+        if (in_water && vx < -(WALK_MAX >> 1)) vx = -(WALK_MAX >> 1);
         face_right = 0;
     } else if (keys & PORT_A_KEY_RIGHT) {
         vx += on_ground ? WALK_ACC : AIR_ACC;
         if (vx > WALK_MAX) vx = WALK_MAX;
+        if (in_water && vx > (WALK_MAX >> 1)) vx = (WALK_MAX >> 1);
         face_right = 1;
     } else {
         if (on_ground) vx = 0;
         else vx = (vx * 3) >> 2;
     }
-    if ((pressed & PORT_A_KEY_1) && on_ground) {
-        vy = JUMP_V;
-        on_ground = 0;
+
+    /* --- vertical: jump / swim ------------------------------------- */
+    if (in_water) {
+        if (pressed & PORT_A_KEY_1) {        /* swim stroke */
+            vy = -640;
+            sfx_play(SFX_JUMP);
+        }
+        vy += GRAV >> 2;                      /* buoyant gravity */
+        if (vy > 384) vy = 384;               /* slow sinking */
+    } else {
+        if ((pressed & PORT_A_KEY_1) && on_ground) {
+            vy = JUMP_V;
+            on_ground = 0;
+            sfx_play(SFX_JUMP);
+        }
+        if (!(keys & PORT_A_KEY_1) && vy < -360) vy = -360;
+        if (!on_ground) {
+            vy += GRAV;
+            if (vy > FALL_MAX) vy = FALL_MAX;
+        }
     }
     if (pressed & PORT_A_KEY_2) spawn_weapon();
-    if (!(keys & PORT_A_KEY_1) && vy < -360) vy = -360;
-    if (!on_ground) {
-        vy += GRAV;
-        if (vy > FALL_MAX) vy = FALL_MAX;
-    }
     move_x();
     move_y();
+    check_deadly();
     choose_player_frame();
 }
 
@@ -573,6 +718,9 @@ void main(void) {
     SMS_loadSpritePalette(spr_palette);
     SMS_setBackdropColor(0);
     player_health = 8; hurt_t = 0;
+    lives = 3;
+    gems = 0;
+    items_collected = enemies_killed = 0;
 
     load_level_at(0, 0, 0);
     prev_keys = SMS_getKeysStatus();
@@ -581,6 +729,7 @@ void main(void) {
         SMS_waitForVBlank();
         UNSAFE_SMS_copySpritestoSAT();
         apply_hw_scroll();
+        sfx_update();
         keys = SMS_getKeysStatus();
         pressed = keys & ~prev_keys;
         prev_keys = keys;
