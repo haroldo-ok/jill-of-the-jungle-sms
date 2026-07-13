@@ -36,10 +36,21 @@ $(PROG).sms: $(PROG).ihx
 test: assets
 	python3 tools/test_jill_data.py
 
+# Build the headless SMS emulator used for automated playtesting.
+tools/smstest/smstest:
+	$(MAKE) -C tools/smstest
+
+# Automated playtest: boots the real ROM in an emulator, drives the controller,
+# and asserts on live game state via the SDCC .noi symbols.  CI gate.
+playtest: $(PROG).sms tools/smstest/smstest
+	@mkdir -p shots
+	tools/smstest/smstest $(PROG).sms tests/playtest.txt
+
 fulltest: assets
 	python3 tools/playtest_static.py
 
 clean:
-	rm -rf build $(PROG).ihx $(PROG).sms $(PROG).map $(PROG).noi $(PROG).lk $(PROG).sym $(PROG).asm $(PROG).lst $(PROG).rel $(PROG).rst
+	$(MAKE) -C tools/smstest clean
+	rm -rf build shots $(PROG).ihx $(PROG).sms $(PROG).map $(PROG).noi $(PROG).lk $(PROG).sym $(PROG).asm $(PROG).lst $(PROG).rel $(PROG).rst
 
-.PHONY: all assets test clean
+.PHONY: all assets test playtest clean
