@@ -47,6 +47,9 @@ static uint8_t vdp_line_pending;    /* line irq flag */
 static uint8_t line_counter;
 static int cur_line;
 static uint8_t pad1_state = 0xFF;   /* active low: U D L R B1 B2 */
+static unsigned long psg_writes;
+static uint8_t psg_vol[4] = {0x0F, 0x0F, 0x0F, 0x0F};  /* 0x0F = silent */
+static uint8_t psg_latched_ch;
 
 static z80 cpu;
 static unsigned long frame_no;
@@ -117,7 +120,14 @@ static uint8_t port_in(z80* z, uint8_t port) {
 }
 static void port_out(z80* z, uint8_t port, uint8_t val) {
     (void)z;
-    if (port >= 0x40 && port < 0x80) return;              /* PSG */
+    if (port >= 0x40 && port < 0x80) {                    /* PSG */
+        psg_writes++;
+        if (val & 0x80) {                                 /* latch byte */
+            psg_latched_ch = (val >> 5) & 3;
+            if (val & 0x10) psg_vol[psg_latched_ch] = val & 0x0F;
+        }
+        return;
+    }
     if (port >= 0x80 && port < 0xC0) {
         if (port & 1) vdp_ctrl_write(val); else vdp_data_write(val);
     }
@@ -357,6 +367,29 @@ int main(int argc, char** argv) {
                 printf("print: %s = %ld (frame %lu)\n", c2, read_val(addr, w), frame_no);
         }
         else if (!strcmp(c1, "screenshot") && n >= 2) render_screenshot(c2);
+        else if (!strcmp(c1, "expectsprites") && n >= 3) {
+            /* Count active sprites in the SAT (entries before the 0xD0 terminator). */
+            uint16_t satbase = (uint16_t)(vdp_reg[5] & 0x7E) << 7;
+            int nspr = 64;
+            for (int i = 0; i < 64; i++) if (vram[satbase + i] == 0xD0) { nspr = i; break; }
+            long target = strtol(c3, NULL, 0);
+            if (cmp_op(nspr, c2, target)) printf("ok: %d active sprites %s %ld\n", nspr, c2, target);
+            else { printf("FAIL: %d active sprites, expected %s %ld\n", nspr, c2, target); failures++; }
+        }
+        else if (!strcmp(c1, "expectpsg") && n >= 3) {
+            /* 'expectpsg writes > N' or 'expectpsg audible <ch>' (volume != silent) */
+            if (!strcmp(c2, "audible") && n >= 3) {
+                int ch = atoi(c3);
+                if (ch >= 0 && ch < 4 && psg_vol[ch] != 0x0F)
+                    printf("ok: PSG channel %d audible (attenuation %u)\n", ch, psg_vol[ch]);
+                else { printf("FAIL: PSG channel %d is silent\n", ch); failures++; }
+            } else if (n >= 4) {
+                long target = strtol(c4, NULL, 0);
+                if (cmp_op((long)psg_writes, c3, target))
+                    printf("ok: %lu PSG writes %s %ld\n", psg_writes, c3, target);
+                else { printf("FAIL: %lu PSG writes, expected %s %ld\n", psg_writes, c3, target); failures++; }
+            }
+        }
         else if (!strcmp(c1, "expectcolors") && n >= 2) {
             /* Guards against "passing" on a blank/black frame: renders the
                current frame and counts distinct colours actually shown. */

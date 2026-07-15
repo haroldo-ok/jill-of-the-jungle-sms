@@ -46,7 +46,13 @@ make playtest   # automated playability gate (see below)
   arriving inside a zone doesn't bounce you straight back), a map/level return
   system, health, 3 lives, respawn, and game over (resets progress and returns
   to the overworld map).
-* **Audio** — PSG sound effects for jump, pickup, throw, hurt and doors.
+* **HUD** — a live status display (health heart, lives, gem count) rendered from
+  a small 8x8 sprite font in the otherwise-unused sprite tiles 48-63; the digits
+  update directly from game state.
+* **Audio** — PSG sound effects for jump, pickup, throw, hurt and doors on
+  channel 0 + noise, plus an original looping background tune on channels 1
+  (melody) and 2 (bass). Effects and music share the chip without cutting each
+  other out.
 
 ## Automated playtesting
 
@@ -62,10 +68,12 @@ run 200
 expect py < 90 s16          # she actually moved up the vine
 ```
 
-`tests/playtest.txt` drives 14 end-to-end scenarios covering boot, walking,
+`tests/playtest.txt` drives 15 end-to-end scenarios covering boot, walking,
 jumping, item pickup, level transitions (including the re-entry edge case),
 vine climbing, water physics, throwing the knife to kill an enemy, contact
-damage, death/respawn, and game over. It also renders frames and fails if the
+damage, death/respawn, game over, and the HUD/audio (it counts on-screen sprites
+and inspects the PSG's per-channel volume registers to confirm the melody, bass
+and sound effects are actually sounding). It also renders frames and fails if the
 screen comes back blank — a guard that caught two real cases where screenshots
 were being taken while the VDP was still off mid level-load.
 
@@ -84,8 +92,9 @@ new test scenarios.
 
 ## Known limitations
 
-* Morph forms (bird/fish/frog), lifts and moving platforms, in-game text/message
-  boxes and the score/HUD are not implemented.
+* Morph forms (bird/fish/frog), lifts and moving platforms, and in-game
+  text/message boxes are not implemented.
 * Enemy AI is a behavioural approximation grouped by object type rather than a
   faithful reimplementation of each original object's script.
-* Background music is not implemented (sound effects only).
+* The background music is an original composition in the spirit of the game, not
+  a transcription of the original soundtrack (which is separately copyrighted).

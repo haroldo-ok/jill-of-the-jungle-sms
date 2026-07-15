@@ -83,8 +83,118 @@ static unsigned char ovr_x[MAX_OVR], ovr_y[MAX_OVR], ovr_mt[MAX_OVR];
 static unsigned int row_off[MAP_H];
 
 /* ------------------------------------------------------------------ */
-/* Minimal PSG sound effects (channel 0 tone + channel 3 noise).       */
+/* HUD font: 8x8 1bpp glyphs, expanded to 4bpp at load time.           */
+/* Tiles 0-47 hold Jill/items/enemies and BG starts at 64, so 48..63   */
+/* are free for the status display.                                     */
+#define HUD_BASE   48u
+#define GLYPH_HEART 10u
+#define GLYPH_LIFE  11u
+#define GLYPH_GEM   12u
+#define N_GLYPHS    13u
+
+static const unsigned char hud_glyphs[N_GLYPHS][8] = {
+    {0x3C,0x66,0x6E,0x7E,0x76,0x66,0x3C,0x00}, /* 0 */
+    {0x18,0x38,0x18,0x18,0x18,0x18,0x7E,0x00}, /* 1 */
+    {0x3C,0x66,0x06,0x0C,0x30,0x60,0x7E,0x00}, /* 2 */
+    {0x3C,0x66,0x06,0x1C,0x06,0x66,0x3C,0x00}, /* 3 */
+    {0x0C,0x1C,0x3C,0x6C,0x7E,0x0C,0x0C,0x00}, /* 4 */
+    {0x7E,0x60,0x7C,0x06,0x06,0x66,0x3C,0x00}, /* 5 */
+    {0x1C,0x30,0x60,0x7C,0x66,0x66,0x3C,0x00}, /* 6 */
+    {0x7E,0x66,0x0C,0x18,0x18,0x18,0x18,0x00}, /* 7 */
+    {0x3C,0x66,0x66,0x3C,0x66,0x66,0x3C,0x00}, /* 8 */
+    {0x3C,0x66,0x66,0x3E,0x06,0x0C,0x38,0x00}, /* 9 */
+    {0x00,0x66,0xFF,0xFF,0xFF,0x7E,0x3C,0x18}, /* heart  */
+    {0x18,0x18,0x3C,0x7E,0x18,0x24,0x66,0x00}, /* life   */
+    {0x18,0x3C,0x7E,0xFF,0x7E,0x3C,0x18,0x00}, /* gem    */
+};
+/* Colour index per glyph: digits white, heart red, life yellow, gem cyan. */
+static const unsigned char hud_colors[N_GLYPHS] = {
+    15,15,15,15,15,15,15,15,15,15, 12, 14, 11
+};
+
+static void load_hud_tiles(void) {
+    unsigned char g, row, plane, c;
+    unsigned char tile[32];
+    for (g = 0; g < N_GLYPHS; g++) {
+        c = hud_colors[g];
+        for (row = 0; row < 8; row++) {
+            unsigned char bits = hud_glyphs[g][row];
+            for (plane = 0; plane < 4; plane++)
+                tile[row * 4 + plane] = (c & (1 << plane)) ? bits : 0;
+        }
+        SMS_loadTiles(tile, (unsigned int)(HUD_BASE + g), 32);
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* PSG: channel 0 + noise are reserved for sound effects, channels 1-2  */
+/* for music, so an effect never silences the tune.                     */
 __sfr __at 0x7F PSGPort;
+
+/* Background music: an original composition, played on PSG channels 1  */
+/* (melody) and 2 (bass).                                               */
+/* Tone period = 3579545 / (32 * Hz).                                   */
+#define P_REST 0
+#define P_E3   678
+#define P_F3   639
+#define P_G3   570
+#define P_A3   508
+#define P_C4   427
+#define P_D4   380
+#define P_E4   339
+#define P_G4   285
+#define P_A4   254
+#define P_C5   214
+#define P_D5   190
+#define P_E5   169
+
+#define MUS_LEN   32
+#define MUS_TICKS 9      /* game-loop iterations per step */
+
+static const unsigned int mus_mel[MUS_LEN] = {
+    P_E4, P_G4, P_A4, P_G4,  P_E4, P_D4, P_E4, P_REST,
+    P_G4, P_A4, P_C5, P_A4,  P_G4, P_E4, P_D4, P_REST,
+    P_E5, P_D5, P_C5, P_A4,  P_G4, P_A4, P_C5, P_REST,
+    P_A4, P_G4, P_E4, P_D4,  P_C4, P_D4, P_E4, P_REST,
+};
+static const unsigned int mus_bass[MUS_LEN] = {
+    P_A3, 0, P_A3, 0,  P_E3, 0, P_E3, 0,
+    P_F3, 0, P_F3, 0,  P_G3, 0, P_G3, 0,
+    P_A3, 0, P_A3, 0,  P_F3, 0, P_F3, 0,
+    P_C4, 0, P_G3, 0,  P_A3, 0, P_A3, 0,
+};
+
+unsigned char music_on = 1;
+unsigned char music_step;
+static unsigned char music_t;
+
+static void psg_tone(unsigned char ch, unsigned int f, unsigned char att) {
+    unsigned char latch = (unsigned char)(0x80 | (ch << 5));
+    PSGPort = (unsigned char)(latch | (f & 0x0F));
+    PSGPort = (unsigned char)((f >> 4) & 0x3F);
+    PSGPort = (unsigned char)(latch | 0x10 | (att & 0x0F));
+}
+
+static void music_silence(void) {
+    PSGPort = 0xBF;   /* ch1 off */
+    PSGPort = 0xDF;   /* ch2 off */
+}
+
+static void music_update(void) {
+    unsigned int m, b;
+    if (!music_on) return;
+    if (music_t) { music_t--; return; }
+    music_t = MUS_TICKS;
+    m = mus_mel[music_step];
+    b = mus_bass[music_step];
+    if (m) psg_tone(1, m, 6); else PSGPort = 0xBF;
+    if (b) psg_tone(2, b, 9);
+    music_step++;
+    if (music_step >= MUS_LEN) music_step = 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Minimal PSG sound effects (channel 0 tone + channel 3 noise).       */
 
 #define SFX_NONE   0
 #define SFX_JUMP   1
@@ -309,6 +419,24 @@ static void draw_16x16(int sx, int sy, unsigned char base) {
     SMS_addSpriteClipping(sx + 8, sy + 8, (unsigned char)(base + 3));
 }
 
+static void draw_hud(void) {
+    /* Added before any world sprites: on the SMS the lowest sprite index wins,
+       so the status display always stays on top of Jill and the enemies. */
+    unsigned char h = player_health;
+    unsigned char l = lives;
+    unsigned char g = gems;
+    if (h > 9) h = 9;
+    if (l > 9) l = 9;
+    SMS_addSpriteClipping(8,   4, (unsigned char)(HUD_BASE + GLYPH_HEART));
+    SMS_addSpriteClipping(18,  4, (unsigned char)(HUD_BASE + h));
+    SMS_addSpriteClipping(44,  4, (unsigned char)(HUD_BASE + GLYPH_LIFE));
+    SMS_addSpriteClipping(54,  4, (unsigned char)(HUD_BASE + l));
+    SMS_addSpriteClipping(80,  4, (unsigned char)(HUD_BASE + GLYPH_GEM));
+    if (g > 99) g = 99;
+    SMS_addSpriteClipping(90,  4, (unsigned char)(HUD_BASE + (g / 10)));
+    SMS_addSpriteClipping(100, 4, (unsigned char)(HUD_BASE + (g % 10)));
+}
+
 static void build_sprites(void) {
     unsigned char i;
     int sx = px - (int)cam_x;
@@ -316,6 +444,7 @@ static void build_sprites(void) {
        above the box so her feet stay aligned with the ground. */
     int sy = py - 8 - (int)cam_y;
     SMS_initSprites();
+    draw_hud();
     if (hurt_t && (hurt_t & 2)) goto draw_world_sprites;
     SMS_addSpriteClipping(sx,     sy,      (unsigned char)(PLAYER_BASE));
     SMS_addSpriteClipping(sx + 8, sy,      (unsigned char)(PLAYER_BASE + 1));
@@ -372,6 +501,7 @@ static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy) {
     SMS_loadTiles(spr_jill, VT_PLAYER, 8 * 32);
     SMS_loadTiles(spr_items, VT_ITEMS, 20 * 32);
     SMS_loadTiles(spr_enemies, VT_ENEMY, 20 * 32);
+    load_hud_tiles();
 
     SMS_mapROMBank(ld->data_bank);
     n_ovr = 0;
@@ -730,6 +860,7 @@ void main(void) {
         UNSAFE_SMS_copySpritestoSAT();
         apply_hw_scroll();
         sfx_update();
+        music_update();
         keys = SMS_getKeysStatus();
         pressed = keys & ~prev_keys;
         prev_keys = keys;

@@ -13,6 +13,9 @@ expect player_health == 8 w1
 expect gems == 0 w1
 waituntil on_ground == 1 300 w1
 expectcolors 6
+expectsprites > 8
+expectpsg writes > 0
+expectpsg audible 1
 screenshot shots/00_boot.ppm
 
 echo [2] movement: walk left then right
@@ -140,3 +143,16 @@ run 180
 expectvdp display 1
 expectcolors 6
 screenshot shots/06_gameover.ppm
+
+echo [15] HUD reflects state; music (ch1/ch2) and SFX (ch0) all sound
+poke gems 7 w1
+poke lives 2 w1
+poke player_health 5 w1
+run 20
+expectsprites > 8
+screenshot shots/07_hud.ppm
+poke has_weapon 1 w1
+tap 2
+run 4
+expectpsg audible 0
+expectpsg audible 2
