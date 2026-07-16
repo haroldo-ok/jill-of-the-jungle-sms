@@ -29,9 +29,16 @@
 #define WALK_ACC 96
 #define WALK_MAX 512
 #define AIR_ACC  56
-#define GRAV     52
-#define JUMP_V  (-1120)
+#define GRAV     48
+/* JUMP_V tuned so a full held jump apexes at ~3.5 metatiles (56 px), matching
+   the reach of the original DOS game where Jill clears roughly 4 tiles.  Apex
+   height h = JUMP_V^2 / (2*GRAV) in 8.8 units.  The short-hop cap (JUMP_CUT)
+   gives the variable-height jump: releasing early clamps upward velocity. */
+#define JUMP_V   (-1340)
+#define JUMP_CUT (-420)
 #define FALL_MAX 1280
+#define JUMP_BUF_FRAMES 6
+#define COYOTE_FRAMES   5
 
 static const LevelDesc *ld;
 /* Exported (non-static) so the automated playtest harness can inspect and
@@ -45,6 +52,22 @@ unsigned char on_ground;
 unsigned char climbing;      /* attached to a vine */
 unsigned char in_water;
 static unsigned char face_right;
+static unsigned char jump_buf;   /* frames a jump press stays buffered */
+static unsigned char coyote;     /* frames of grace after leaving a ledge */
+static unsigned char jumping;    /* in the rising, button-held phase */
+
+/* ------------------------------------------------------------------ */
+/* Player transformations.  In the original, Jill can morph into other  */
+/* creatures with different movement abilities.  We implement three     */
+/* forms plus her normal state; a morph is granted by a creature-potion */
+/* pickup and lasts for a timed duration.                               */
+#define FORM_JILL 0
+#define FORM_BIRD 1   /* flap to fly freely, ignores gravity while flapping */
+#define FORM_FROG 2   /* very high jump, poor air control                   */
+#define FORM_FISH 3   /* free swimming in and out of water                  */
+unsigned char form;             /* current FORM_* */
+unsigned int  form_timer;       /* frames remaining before reverting */
+#define FORM_DURATION 900       /* ~15s at the 60-iter/s loop pacing */
 static unsigned char cam_tx, cam_ty;     /* camera in 8x8 subtiles */
 static unsigned char old_cam_tx, old_cam_ty;
 static unsigned char pframe, cur_pframe, anim_t;
@@ -68,10 +91,25 @@ static unsigned int return_x, return_y;
 static unsigned char return_valid;
 
 unsigned char n_enemies;
-static int en_x[MAX_ENEMIES], en_y[MAX_ENEMIES];
-static signed int en_vx[MAX_ENEMIES], en_vy[MAX_ENEMIES];
-static unsigned char en_type[MAX_ENEMIES], en_phase[MAX_ENEMIES];
+int en_x[MAX_ENEMIES], en_y[MAX_ENEMIES];
+signed int en_vx[MAX_ENEMIES], en_vy[MAX_ENEMIES];
+unsigned char en_type[MAX_ENEMIES], en_phase[MAX_ENEMIES];
 unsigned char en_alive[MAX_ENEMIES];
+
+/* Enemy behavior classes (see enemy_behavior() for the type->class mapping). */
+#define EB_WALKER  0
+#define EB_HOPPER  1
+#define EB_FLYER   2
+#define EB_CHASER  3
+#define EB_SHOOTER 4
+#define EB_STATIC  5
+static unsigned char enemy_behavior(unsigned char typ);
+
+/* Enemy projectiles (shared pool, distinct from Jill's knife). */
+#define MAX_EPROJ 4
+static int  ep_x[MAX_EPROJ], ep_y[MAX_EPROJ];
+static int  ep_vx[MAX_EPROJ], ep_vy[MAX_EPROJ];
+unsigned char ep_active[MAX_EPROJ];
 
 static unsigned char n_doors;
 static unsigned int door_x[MAX_DOORS], door_y[MAX_DOORS];
@@ -242,8 +280,12 @@ static unsigned char clamp_u8_int(int v, int lo, int hi) {
 static unsigned char mt_at_cell(unsigned char mx, unsigned char my) {
     unsigned char i;
     if (mx >= MAP_W || my >= MAP_H) return 0;
-    for (i = 0; i < n_ovr; i++)
-        if (ovr_x[i] == mx && ovr_y[i] == my) return ovr_mt[i];
+    /* The overlay list is almost always empty (it only holds opened-door
+       stamps), so guarding the scan removes it from the per-tile hot path. */
+    if (n_ovr) {
+        for (i = 0; i < n_ovr; i++)
+            if (ovr_x[i] == mx && ovr_y[i] == my) return ovr_mt[i];
+    }
     return ld->map[row_off[my] + mx];
 }
 
@@ -263,6 +305,26 @@ static unsigned char flag_at_px(int x, int y) {
     return ld->flags[mt];
 }
 
+/* ------------------------------------------------------------------ */
+/* Buffered background streaming, ported from the CK1-SMS engine.       */
+/* Instead of one SMS_setTileatXY per tile (which re-issues the VRAM     */
+/* address every call), we build a run of tiles in a little-endian int   */
+/* buffer and stream it through the VDP data port after setting the      */
+/* auto-incrementing address just once (or twice, split at the 32-column */
+/* name-table wrap).  This is the hot path during scrolling.            */
+__sfr __at 0xBE VDPDataPort;
+__sfr __at 0xBF VDPCtrlPort;
+/* Profiling marker: writes to an unused port that the test harness watches to
+   measure the cost of one game-loop iteration.  Harmless on real hardware. */
+__sfr __at 0x3E PROF_PORT;
+
+static unsigned int colbuf[28];
+static unsigned int colbuf_a;          /* VRAM write address of column top */
+
+static unsigned int rowbuf[32];
+static unsigned int rowbuf_a0, rowbuf_a1;  /* run starts (a1 = after NT wrap) */
+static unsigned char rowbuf_n1;            /* entries before the wrap */
+
 static unsigned int tile_at_subcell(unsigned int wc, unsigned int wr) {
     unsigned char mx, my, mt;
     if (wc >= (MAP_W * 2u) || wr >= (MAP_H * 2u)) return 0;
@@ -272,21 +334,53 @@ static unsigned int tile_at_subcell(unsigned int wc, unsigned int wr) {
     return ld->mtdef[((unsigned int)mt << 2) + ((wr & 1u) << 1) + (wc & 1u)] + BG_BASE;
 }
 
+/* Column: 28 tiles down a single name-table column (no horizontal wrap). */
 static void draw_col_now(unsigned int wc) {
     unsigned char r;
+    const unsigned char *pt;
+    unsigned char ntx = (unsigned char)(wc & 31u);
+    unsigned int base = SMS_PNTAddress | ((unsigned int)ntx << 1);
     SMS_mapROMBank(ld->data_bank);
     for (r = 0; r < 28; r++) {
         unsigned int wr = (unsigned int)cam_ty + r;
-        SMS_setTileatXY((unsigned char)(wc & 31u), (unsigned char)(wr % 28u), tile_at_subcell(wc, wr));
+        /* rows step by 64 bytes (32 tiles * 2) and wrap the 28-row window */
+        unsigned int slot = (unsigned int)((wr) % 28u);
+        colbuf[slot] = tile_at_subcell(wc, wr);
+    }
+    /* stream in screen order, address set once per tile-row because the
+       28-row vertical window wraps inside the 32-row name table */
+    pt = (const unsigned char *)colbuf;
+    for (r = 0; r < 28; r++) {
+        unsigned int addr = base + ((unsigned int)r << 6);
+        VDPCtrlPort = (unsigned char)addr;
+        VDPCtrlPort = (unsigned char)((addr >> 8) | 0x40);
+        VDPDataPort = *pt++;
+        VDPDataPort = *pt++;
     }
 }
 
+/* Row: 32 tiles across, split into two runs at the 32-column NT wrap. */
 static void draw_row_now(unsigned int wr) {
-    unsigned char c;
+    unsigned char c, ntx0;
+    const unsigned char *pt;
+    unsigned int rowbase = SMS_PNTAddress | (((unsigned int)(wr % 28u)) << 6);
+    unsigned char n1;
     SMS_mapROMBank(ld->data_bank);
-    for (c = 0; c < 32; c++) {
-        unsigned int wc = (unsigned int)cam_tx + 1u + c;
-        SMS_setTileatXY((unsigned char)(wc & 31u), (unsigned char)(wr % 28u), tile_at_subcell(wc, wr));
+    ntx0 = (unsigned char)(((unsigned int)cam_tx + 1u) & 31u);
+    rowbuf_a0 = rowbase | ((unsigned int)ntx0 << 1);
+    rowbuf_a1 = rowbase;
+    rowbuf_n1 = (unsigned char)(32u - ntx0);
+    for (c = 0; c < 32; c++)
+        rowbuf[c] = tile_at_subcell((unsigned int)cam_tx + 1u + c, wr);
+    n1 = rowbuf_n1;
+    pt = (const unsigned char *)rowbuf;
+    VDPCtrlPort = (unsigned char)rowbuf_a0;
+    VDPCtrlPort = (unsigned char)((rowbuf_a0 >> 8) | 0x40);
+    for (c = 0; c < n1; c++) { VDPDataPort = *pt++; VDPDataPort = *pt++; }
+    if (c < 32) {
+        VDPCtrlPort = (unsigned char)rowbuf_a1;
+        VDPCtrlPort = (unsigned char)((rowbuf_a1 >> 8) | 0x40);
+        for (; c < 32; c++) { VDPDataPort = *pt++; VDPDataPort = *pt++; }
     }
 }
 
@@ -412,11 +506,68 @@ static unsigned char enemy_sprite_index(unsigned char typ) {
     return 0;
 }
 
+/* Fast sprite path, ported from CK1-SMS: for the common fully-on-screen case
+   we write SMSlib's sprite tables directly, skipping the per-sprite clipping
+   arithmetic in SMS_addSpriteClipping.  Off-screen or partially-clipped cases
+   fall back to the clipping version. */
+extern unsigned char SpriteTableY[64];
+extern unsigned char SpriteTableXN[128];
+extern unsigned char SpriteNextFree;
+
 static void draw_16x16(int sx, int sy, unsigned char base) {
+    if ((unsigned int)sx <= 240 && (unsigned int)sy <= 176) {
+        unsigned char x = (unsigned char)sx, y1 = (unsigned char)(sy - 1);
+        unsigned char n = SpriteNextFree;
+        unsigned char *ty, *xn;
+        if (n > 60) return;
+        ty = SpriteTableY + n;
+        xn = SpriteTableXN + (unsigned char)(n << 1);
+        ty[0] = y1;     ty[1] = y1;
+        ty[2] = y1 + 8; ty[3] = y1 + 8;
+        xn[0] = x;      xn[1] = base;
+        xn[2] = x + 8;  xn[3] = base + 1;
+        xn[4] = x;      xn[5] = base + 2;
+        xn[6] = x + 8;  xn[7] = base + 3;
+        SpriteNextFree = n + 4;
+        return;
+    }
     SMS_addSpriteClipping(sx,     sy,     base);
     SMS_addSpriteClipping(sx + 8, sy,     (unsigned char)(base + 1));
     SMS_addSpriteClipping(sx,     sy + 8, (unsigned char)(base + 2));
     SMS_addSpriteClipping(sx + 8, sy + 8, (unsigned char)(base + 3));
+}
+
+static void draw_16x32(int sx, int sy, unsigned char base) {
+    if ((unsigned int)sx <= 240 && (unsigned int)sy <= 160) {
+        unsigned char x = (unsigned char)sx, y1 = (unsigned char)(sy - 1);
+        unsigned char n = SpriteNextFree;
+        unsigned char *ty, *xn;
+        if (n > 56) return;
+        ty = SpriteTableY + n;
+        xn = SpriteTableXN + (unsigned char)(n << 1);
+        ty[0] = y1;      ty[1] = y1;
+        ty[2] = y1 + 8;  ty[3] = y1 + 8;
+        ty[4] = y1 + 16; ty[5] = y1 + 16;
+        ty[6] = y1 + 24; ty[7] = y1 + 24;
+        xn[0] = x;      xn[1]  = base;
+        xn[2] = x + 8;  xn[3]  = base + 1;
+        xn[4] = x;      xn[5]  = base + 2;
+        xn[6] = x + 8;  xn[7]  = base + 3;
+        xn[8] = x;      xn[9]  = base + 4;
+        xn[10] = x + 8; xn[11] = base + 5;
+        xn[12] = x;     xn[13] = base + 6;
+        xn[14] = x + 8; xn[15] = base + 7;
+        SpriteNextFree = n + 8;
+        return;
+    }
+    SMS_addSpriteClipping(sx,     sy,      base);
+    SMS_addSpriteClipping(sx + 8, sy,      (unsigned char)(base + 1));
+    SMS_addSpriteClipping(sx,     sy + 8,  (unsigned char)(base + 2));
+    SMS_addSpriteClipping(sx + 8, sy + 8,  (unsigned char)(base + 3));
+    SMS_addSpriteClipping(sx,     sy + 16, (unsigned char)(base + 4));
+    SMS_addSpriteClipping(sx + 8, sy + 16, (unsigned char)(base + 5));
+    SMS_addSpriteClipping(sx,     sy + 24, (unsigned char)(base + 6));
+    SMS_addSpriteClipping(sx + 8, sy + 24, (unsigned char)(base + 7));
 }
 
 static void draw_hud(void) {
@@ -446,14 +597,14 @@ static void build_sprites(void) {
     SMS_initSprites();
     draw_hud();
     if (hurt_t && (hurt_t & 2)) goto draw_world_sprites;
-    SMS_addSpriteClipping(sx,     sy,      (unsigned char)(PLAYER_BASE));
-    SMS_addSpriteClipping(sx + 8, sy,      (unsigned char)(PLAYER_BASE + 1));
-    SMS_addSpriteClipping(sx,     sy + 8,  (unsigned char)(PLAYER_BASE + 2));
-    SMS_addSpriteClipping(sx + 8, sy + 8,  (unsigned char)(PLAYER_BASE + 3));
-    SMS_addSpriteClipping(sx,     sy + 16, (unsigned char)(PLAYER_BASE + 4));
-    SMS_addSpriteClipping(sx + 8, sy + 16, (unsigned char)(PLAYER_BASE + 5));
-    SMS_addSpriteClipping(sx,     sy + 24, (unsigned char)(PLAYER_BASE + 6));
-    SMS_addSpriteClipping(sx + 8, sy + 24, (unsigned char)(PLAYER_BASE + 7));
+    if (form == FORM_JILL) {
+        draw_16x32(sx, sy, (unsigned char)PLAYER_BASE);
+    } else {
+        /* Morphed: draw the creature sprite (16x16) centred on Jill's box.
+           Bird = enemy sprite 1, frog = 2, fish reuses the frog shape. */
+        unsigned char ci = (form == FORM_BIRD) ? 1 : 2;
+        draw_16x16(sx, sy + 8, (unsigned char)(VT_ENEMY + ci * 4));
+    }
 
 draw_world_sprites:
     for (i = 0; i < n_items; i++) {
@@ -479,6 +630,14 @@ draw_world_sprites:
     if (b_active) {
         /* Reuse the knife sprite as the first weapon projectile. */
         draw_16x16(b_x - (int)cam_x, b_y - (int)cam_y, (unsigned char)(ITEM_BASE + 4));
+    }
+    /* Enemy projectiles reuse the gem sprite (a small bright blob). */
+    for (i = 0; i < MAX_EPROJ; i++) {
+        int ex, ey;
+        if (!ep_active[i]) continue;
+        ex = ep_x[i] - (int)cam_x; ey = ep_y[i] - (int)cam_y;
+        if (ex < -16 || ex > 255 || ey < -16 || ey > 191) continue;
+        draw_16x16(ex, ey, (unsigned char)(ITEM_BASE + 3 * 4));
     }
 }
 
@@ -524,10 +683,16 @@ static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy) {
     if (n_enemies > MAX_ENEMIES) n_enemies = MAX_ENEMIES;
     for (i = 0; i < n_enemies; i++) {
         const unsigned int *en = ld->enemies + ((unsigned int)i << 2);
+        unsigned char beh;
         en_x[i] = (int)en[0]; en_y[i] = (int)en[1]; en_type[i] = (unsigned char)en[2];
-        en_vx[i] = (i & 1) ? 128 : -128; en_vy[i] = 0; en_alive[i] = 1; en_phase[i] = (unsigned char)(i * 17);
-        if (en_type[i] == 30 || en_type[i] == 43 || en_type[i] == 45 || en_type[i] == 46) en_vx[i] = (i & 1) ? 96 : -96;
+        en_vy[i] = 0; en_alive[i] = 1; en_phase[i] = (unsigned char)(i * 17);
+        beh = enemy_behavior(en_type[i]);
+        /* Flyers drift slower; walkers/hoppers patrol at a walking pace. */
+        if (beh == EB_FLYER)      en_vx[i] = (i & 1) ? 96 : -96;
+        else if (beh == EB_STATIC || beh == EB_SHOOTER || beh == EB_CHASER) en_vx[i] = 0;
+        else                      en_vx[i] = (i & 1) ? 128 : -128;
     }
+    for (i = 0; i < MAX_EPROJ; i++) ep_active[i] = 0;
 
     if (sx == 0 && sy == 0) { sx = ld->spawn_x; sy = ld->spawn_y; }
     px = (int)sx;
@@ -543,6 +708,7 @@ static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy) {
     b_active = 0;
     climbing = 0;
     in_water = 0;
+    form = FORM_JILL; form_timer = 0;
     redraw_needed = 1;
     update_camera();
     draw_screen();
@@ -601,6 +767,16 @@ static void check_items(void) {
             if (item_type[i] == 14) has_red_key = 1;
             if (item_type[i] == 2)  has_weapon = 1;
             if (item_type[i] == 28 && (item_param[i] == 2 || item_param[i] == 8)) has_weapon = 1;
+            /* Creature potions (object type 28) grant a timed morph.  The
+               param selects which form; unknown params heal instead. */
+            if (item_type[i] == 28) {
+                switch (item_param[i]) {
+                case 3:  case 11: form = FORM_BIRD; form_timer = FORM_DURATION; break;
+                case 4:  case 12: form = FORM_FROG; form_timer = FORM_DURATION; break;
+                case 5:  case 13: form = FORM_FISH; form_timer = FORM_DURATION; break;
+                default: break;
+                }
+            }
         }
     }
 }
@@ -666,6 +842,7 @@ static void player_hurt(int source_x) {
     sfx_play(SFX_HURT);
     hurt_t = 90;
     climbing = 0;
+    form = FORM_JILL; form_timer = 0;
     vx = (px < source_x) ? -760 : 760;
     vy = -520;
     on_ground = 0;
@@ -675,38 +852,167 @@ static unsigned char enemy_flying(unsigned char typ) {
     return (typ == 30 || typ == 43 || typ == 45 || typ == 46 || typ == 59 || typ == 60) ? 1 : 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Enemy behavior classes.  The original game has many distinct object  */
+/* scripts; we group them into faithful movement archetypes (the EB_*   */
+/* constants and this classifier's prototype are declared near the top).*/
+static unsigned char enemy_behavior(unsigned char typ) {
+    switch (typ) {
+    case 30: case 43: case 45: case 46:            return EB_FLYER;
+    case 59: case 60:                              return EB_CHASER;  /* flying homers */
+    case 22:                                       return EB_HOPPER;
+    case 35: case 38: case 41: case 65:            return EB_STATIC;  /* spikes/traps */
+    case 7:  case 17: case 48: case 53:            return EB_SHOOTER;
+    case 11:                                       return EB_SHOOTER;  /* phoenix */
+    default:                                       return EB_WALKER;
+    }
+}
+
+/* Enemy projectiles: pool declared near the top; spawn/update below. */
+static void eproj_spawn(int x, int y, int vx8, int vy8) {
+    unsigned char i;
+    for (i = 0; i < MAX_EPROJ; i++) {
+        if (!ep_active[i]) {
+            ep_active[i] = 1;
+            ep_x[i] = x; ep_y[i] = y; ep_vx[i] = vx8; ep_vy[i] = vy8;
+            return;
+        }
+    }
+}
+
+static void update_eproj(void) {
+    unsigned char i;
+    for (i = 0; i < MAX_EPROJ; i++) {
+        if (!ep_active[i]) continue;
+        ep_x[i] += ep_vx[i] >> 6;
+        ep_y[i] += ep_vy[i] >> 6;
+        /* despawn off-map or on hitting solid terrain */
+        if (ep_x[i] < 0 || ep_x[i] > (MAP_W * 16) || ep_y[i] < 0 || ep_y[i] > (MAP_H * 16) ||
+            (flag_at_px(ep_x[i] + 4, ep_y[i] + 4) & JF_SOLID)) {
+            ep_active[i] = 0; continue;
+        }
+        if (!hurt_t && px + 13 >= ep_x[i] && px + 2 <= ep_x[i] + 8 &&
+            py + 23 >= ep_y[i] && py + 2 <= ep_y[i] + 8) {
+            ep_active[i] = 0;
+            player_hurt(ep_x[i]);
+        }
+    }
+}
+
+static unsigned char on_ground_enemy(unsigned char i) {
+    return (flag_at_px(en_x[i] + 4, en_y[i] + 16) |
+            flag_at_px(en_x[i] + 11, en_y[i] + 16)) & (JF_SOLID | JF_PLAT);
+}
+
 static void update_enemies(void) {
     unsigned char i;
     for (i = 0; i < n_enemies; i++) {
         int nx, ny;
+        unsigned char beh;
         if (!en_alive[i]) continue;
-        if (en_x[i] < (int)cam_x - 64 || en_x[i] > (int)cam_x + 320 || en_y[i] < (int)cam_y - 64 || en_y[i] > (int)cam_y + 256) continue;
+        /* Off-screen enemies are frozen (both cheap and matches the original's
+           behaviour of only animating what's near the player). */
+        if (en_x[i] < (int)cam_x - 64 || en_x[i] > (int)cam_x + 320 ||
+            en_y[i] < (int)cam_y - 64 || en_y[i] > (int)cam_y + 256) continue;
         en_phase[i]++;
-        if (enemy_flying(en_type[i])) {
-            en_x[i] += (en_vx[i] >> 7);
-            if (en_x[i] < 0 || en_x[i] > (MAP_W * 16) - 16) en_vx[i] = -en_vx[i];
-            if ((en_phase[i] & 31) == 0) en_vy[i] = -en_vy[i];
-            en_y[i] += (en_vy[i] >= 0) ? 1 : -1;
-        } else if (en_type[i] == 35 || en_type[i] == 38 || en_type[i] == 41 || en_type[i] == 65) {
-            /* static/moving traps: keep simple for now */
-        } else {
-            if (en_type[i] == 22 && (en_phase[i] & 63) == 0) en_vy[i] = -650;
+        beh = enemy_behavior(en_type[i]);
+
+        switch (beh) {
+        case EB_FLYER: {
+            /* Horizontal drift with a sine-like vertical bob (triangle wave). */
+            nx = en_x[i] + (en_vx[i] >> 7);
+            if (nx < 0 || nx > (MAP_W * 16) - 16 ||
+                ((flag_at_px(nx + 2, en_y[i] + 8) | flag_at_px(nx + 13, en_y[i] + 8)) & JF_SOLID))
+                en_vx[i] = -en_vx[i];
+            else en_x[i] = nx;
+            en_y[i] += ((en_phase[i] >> 3) & 1) ? 1 : -1;
+            break;
+        }
+        case EB_CHASER: {
+            /* Flying homer: eases toward Jill's position on both axes. */
+            int tx = px, ty = py;
+            if (en_x[i] < tx - 1) en_x[i] += 2; else if (en_x[i] > tx + 1) en_x[i] -= 2;
+            if (en_y[i] < ty - 1) en_y[i] += 1; else if (en_y[i] > ty + 1) en_y[i] -= 1;
+            break;
+        }
+        case EB_HOPPER: {
+            /* Frog-like: leaps periodically, gravity brings it back down. */
+            if (on_ground_enemy(i) && (en_phase[i] & 63) == 0) {
+                en_vy[i] = -700;
+                en_vx[i] = (px > en_x[i]) ? 110 : -110;   /* hop toward Jill */
+            }
             en_vy[i] += 32; if (en_vy[i] > 768) en_vy[i] = 768;
             nx = en_x[i] + (en_vx[i] >> 7);
-            if ((flag_at_px(nx + 2, en_y[i] + 8) | flag_at_px(nx + 13, en_y[i] + 8)) & JF_SOLID) en_vx[i] = -en_vx[i];
+            if (((flag_at_px(nx + 2, en_y[i] + 8) | flag_at_px(nx + 13, en_y[i] + 8)) & JF_SOLID))
+                en_vx[i] = 0;
             else en_x[i] = nx;
             ny = en_y[i] + (en_vy[i] >> 8);
-            if (en_vy[i] > 0 && ((flag_at_px(en_x[i] + 4, ny + 15) | flag_at_px(en_x[i] + 11, ny + 15)) & (JF_SOLID | JF_PLAT))) {
+            if (en_vy[i] > 0 &&
+                ((flag_at_px(en_x[i] + 4, ny + 15) | flag_at_px(en_x[i] + 11, ny + 15)) & (JF_SOLID | JF_PLAT))) {
+                en_y[i] = ((ny + 15) & ~15) - 16; en_vy[i] = 0; en_vx[i] = 0;
+            } else en_y[i] = ny;
+            break;
+        }
+        case EB_SHOOTER: {
+            /* Mostly stationary; fires a projectile at Jill on a timer when she
+               is roughly on-screen and facing-reachable. */
+            en_vy[i] += 32; if (en_vy[i] > 768) en_vy[i] = 768;
+            ny = en_y[i] + (en_vy[i] >> 8);
+            if (en_vy[i] > 0 &&
+                ((flag_at_px(en_x[i] + 4, ny + 15) | flag_at_px(en_x[i] + 11, ny + 15)) & (JF_SOLID | JF_PLAT))) {
                 en_y[i] = ((ny + 15) & ~15) - 16; en_vy[i] = 0;
             } else en_y[i] = ny;
+            if ((en_phase[i] & 63) == 0) {
+                int dx = px - en_x[i];
+                int dy = py - en_y[i];
+                int vx8 = (dx >= 0) ? 480 : -480;
+                int vy8 = (dy < -8) ? -220 : (dy > 8 ? 220 : 0);  /* aim up/down a bit */
+                eproj_spawn(en_x[i] + 4, en_y[i] + 4, vx8, vy8);
+            }
+            break;
         }
-        if (px + 13 >= en_x[i] && px + 2 <= en_x[i] + 15 && py + 23 >= en_y[i] && py + 2 <= en_y[i] + 15) player_hurt(en_x[i]);
-        if (b_active && b_x + 15 >= en_x[i] && b_x <= en_x[i] + 15 && b_y + 15 >= en_y[i] && b_y <= en_y[i] + 15) {
+        case EB_STATIC:
+            /* Fixed hazard: no movement, contact damage handled below. */
+            break;
+        default: {  /* EB_WALKER */
+            /* Patrols horizontally, reverses at a wall or the edge of a ledge. */
+            unsigned char grounded = on_ground_enemy(i);
+            en_vy[i] += 32; if (en_vy[i] > 768) en_vy[i] = 768;
+            nx = en_x[i] + (en_vx[i] >> 7);
+            {
+                unsigned char wall = (flag_at_px(nx + 2, en_y[i] + 8) |
+                                      flag_at_px(nx + 13, en_y[i] + 8)) & JF_SOLID;
+                /* Ledge check: look a few px beyond the leading edge for floor.
+                   Checking ahead of the *current* position (not the tentative
+                   nx) means the turn happens before the enemy steps into empty
+                   space and starts falling. */
+                int lead = (en_vx[i] >= 0) ? (en_x[i] + 18) : (en_x[i] - 2);
+                unsigned char ground_ahead =
+                    (flag_at_px(lead, en_y[i] + 18)) & (JF_SOLID | JF_PLAT);
+                if (wall || (grounded && !ground_ahead)) en_vx[i] = -en_vx[i];
+                else en_x[i] = nx;
+            }
+            ny = en_y[i] + (en_vy[i] >> 8);
+            if (en_vy[i] > 0 &&
+                ((flag_at_px(en_x[i] + 4, ny + 15) | flag_at_px(en_x[i] + 11, ny + 15)) & (JF_SOLID | JF_PLAT))) {
+                en_y[i] = ((ny + 15) & ~15) - 16; en_vy[i] = 0;
+            } else en_y[i] = ny;
+            break;
+        }
+        }
+
+        /* contact damage */
+        if (!hurt_t && px + 13 >= en_x[i] && px + 2 <= en_x[i] + 15 &&
+            py + 23 >= en_y[i] && py + 2 <= en_y[i] + 15) player_hurt(en_x[i]);
+        /* killed by Jill's knife */
+        if (b_active && b_x + 15 >= en_x[i] && b_x <= en_x[i] + 15 &&
+            b_y + 15 >= en_y[i] && b_y <= en_y[i] + 15) {
             en_alive[i] = 0; b_active = 0;
             enemies_killed++;
             sfx_play(SFX_HURT);
         }
     }
+    update_eproj();
 }
 
 static void spawn_weapon(void) {
@@ -763,6 +1069,14 @@ static void update_player(unsigned int keys, unsigned int pressed) {
     in_water = (body & JF_WATER) ? 1 : 0;
 
     if (hurt_t) hurt_t--;
+    /* Morph forms are timed; revert to Jill when the timer runs out. */
+    if (form != FORM_JILL) {
+        if (form_timer) form_timer--;
+        else form = FORM_JILL;
+    }
+    /* Coyote time: full grace while standing, counting down once airborne. */
+    if (on_ground) coyote = COYOTE_FRAMES;
+    else if (coyote) coyote--;
 
     /* --- vine climbing -------------------------------------------- */
     if (climbing) {
@@ -812,21 +1126,44 @@ static void update_player(unsigned int keys, unsigned int pressed) {
         else vx = (vx * 3) >> 2;
     }
 
-    /* --- vertical: jump / swim ------------------------------------- */
-    if (in_water) {
-        if (pressed & PORT_A_KEY_1) {        /* swim stroke */
-            vy = -640;
+    /* --- vertical: form-specific movement -------------------------- */
+    if (form == FORM_BIRD) {
+        /* Bird: each press flaps upward; gravity is gentle so held taps let
+           Jill gain height and glide.  Ignores water entirely. */
+        if (pressed & PORT_A_KEY_1) { vy = -600; sfx_play(SFX_JUMP); }
+        vy += GRAV >> 2;
+        if (vy > 420) vy = 420;
+        on_ground = 0;
+    } else if (form == FORM_FISH || in_water) {
+        /* Fish (or anyone in water): buoyant free-swimming with up strokes. */
+        if (pressed & PORT_A_KEY_1) {
+            vy = (form == FORM_FISH) ? -560 : -640;
             sfx_play(SFX_JUMP);
         }
-        vy += GRAV >> 2;                      /* buoyant gravity */
-        if (vy > 384) vy = 384;               /* slow sinking */
+        if (keys & PORT_A_KEY_UP)   vy -= GRAV;      /* fish can steer vertically */
+        if (keys & PORT_A_KEY_DOWN) vy += GRAV;
+        vy += GRAV >> 2;
+        if (vy > 384) vy = 384;
+        if (vy < -420) vy = -420;
     } else {
-        if ((pressed & PORT_A_KEY_1) && on_ground) {
-            vy = JUMP_V;
+        /* Jump buffering: a press within JUMP_BUF_FRAMES of landing still fires,
+           and coyote time lets a jump register just after walking off a ledge. */
+        int jv = (form == FORM_FROG) ? (JUMP_V * 3 / 2) : JUMP_V;  /* frog leaps high */
+        if (pressed & PORT_A_KEY_1) jump_buf = JUMP_BUF_FRAMES;
+        if (jump_buf && (on_ground || coyote)) {
+            jump_buf = 0; coyote = 0;
+            vy = jv;
             on_ground = 0;
+            jumping = 1;
             sfx_play(SFX_JUMP);
         }
-        if (!(keys & PORT_A_KEY_1) && vy < -360) vy = -360;
+        if (jump_buf) jump_buf--;
+        /* Variable height: releasing the button during the rise cuts the climb.
+           The frog is committed to its leap (no early cut), giving a fixed arc. */
+        if (jumping && form != FORM_FROG) {
+            if (!(keys & PORT_A_KEY_1)) { if (vy < JUMP_CUT) vy = JUMP_CUT; jumping = 0; }
+            else if (vy >= 0) jumping = 0;
+        } else if (jumping && vy >= 0) jumping = 0;
         if (!on_ground) {
             vy += GRAV;
             if (vy > FALL_MAX) vy = FALL_MAX;
@@ -848,6 +1185,7 @@ void main(void) {
     SMS_loadSpritePalette(spr_palette);
     SMS_setBackdropColor(0);
     player_health = 8; hurt_t = 0;
+    form = FORM_JILL; form_timer = 0;
     lives = 3;
     gems = 0;
     items_collected = enemies_killed = 0;
@@ -857,6 +1195,7 @@ void main(void) {
 
     for (;;) {
         SMS_waitForVBlank();
+        PROF_PORT = 0xA0;   /* profiling: game-loop body start */
         UNSAFE_SMS_copySpritestoSAT();
         apply_hw_scroll();
         sfx_update();
@@ -881,6 +1220,7 @@ void main(void) {
         upload_player_frame();
         SMS_mapROMBank(ld->data_bank);
         build_sprites();
+        PROF_PORT = 0xA1;   /* profiling: game-loop body end */
     }
 }
 

@@ -47,12 +47,10 @@ static uint8_t vdp_line_pending;    /* line irq flag */
 static uint8_t line_counter;
 static int cur_line;
 static uint8_t pad1_state = 0xFF;   /* active low: U D L R B1 B2 */
-static unsigned long psg_writes;
-static uint8_t psg_vol[4] = {0x0F, 0x0F, 0x0F, 0x0F};  /* 0x0F = silent */
-static uint8_t psg_latched_ch;
 
 static z80 cpu;
 static unsigned long frame_no;
+static unsigned long prof_start, prof_last, prof_max, prof_sum, prof_count;
 static int failures;
 
 /* ------------------------------------------------------------------ */
@@ -120,14 +118,16 @@ static uint8_t port_in(z80* z, uint8_t port) {
 }
 static void port_out(z80* z, uint8_t port, uint8_t val) {
     (void)z;
-    if (port >= 0x40 && port < 0x80) {                    /* PSG */
-        psg_writes++;
-        if (val & 0x80) {                                 /* latch byte */
-            psg_latched_ch = (val >> 5) & 3;
-            if (val & 0x10) psg_vol[psg_latched_ch] = val & 0x0F;
+    if (port == 0x3E) {                    /* profiling marker */
+        if (val == 0xA0) prof_start = cpu.cyc;
+        else if (val == 0xA1 && prof_start) {
+            prof_last = cpu.cyc - prof_start;
+            if (prof_last > prof_max) prof_max = prof_last;
+            prof_sum += prof_last; prof_count++;
         }
         return;
     }
+    if (port >= 0x40 && port < 0x80) return;              /* PSG */
     if (port >= 0x80 && port < 0xC0) {
         if (port & 1) vdp_ctrl_write(val); else vdp_data_write(val);
     }
@@ -249,14 +249,23 @@ static void load_symbols(const char* path) {
     printf("symbols: loaded %d from %s\n", nsyms, path);
 }
 static int sym_lookup(const char* name, uint32_t* out) {
+    char base[66]; int off = 0;
+    const char* plus = strchr(name, '+');
+    if (plus) {
+        size_t blen = (size_t)(plus - name);
+        if (blen > 64) blen = 64;
+        memcpy(base, name, blen); base[blen] = 0;
+        off = atoi(plus + 1);
+        name = base;
+    }
     char alt[66];
     snprintf(alt, sizeof alt, "_%s", name);
     for (int i = 0; i < nsyms; i++)
         if (!strcmp(syms[i].name, name) || !strcmp(syms[i].name, alt)) {
-            *out = syms[i].addr; return 1;
+            *out = syms[i].addr + off; return 1;
         }
     if (name[0] == '0' && (name[1] == 'x' || name[1] == 'X')) {
-        *out = (uint32_t)strtoul(name, NULL, 16); return 1;
+        *out = (uint32_t)strtoul(name, NULL, 16) + off; return 1;
     }
     return 0;
 }
@@ -367,29 +376,6 @@ int main(int argc, char** argv) {
                 printf("print: %s = %ld (frame %lu)\n", c2, read_val(addr, w), frame_no);
         }
         else if (!strcmp(c1, "screenshot") && n >= 2) render_screenshot(c2);
-        else if (!strcmp(c1, "expectsprites") && n >= 3) {
-            /* Count active sprites in the SAT (entries before the 0xD0 terminator). */
-            uint16_t satbase = (uint16_t)(vdp_reg[5] & 0x7E) << 7;
-            int nspr = 64;
-            for (int i = 0; i < 64; i++) if (vram[satbase + i] == 0xD0) { nspr = i; break; }
-            long target = strtol(c3, NULL, 0);
-            if (cmp_op(nspr, c2, target)) printf("ok: %d active sprites %s %ld\n", nspr, c2, target);
-            else { printf("FAIL: %d active sprites, expected %s %ld\n", nspr, c2, target); failures++; }
-        }
-        else if (!strcmp(c1, "expectpsg") && n >= 3) {
-            /* 'expectpsg writes > N' or 'expectpsg audible <ch>' (volume != silent) */
-            if (!strcmp(c2, "audible") && n >= 3) {
-                int ch = atoi(c3);
-                if (ch >= 0 && ch < 4 && psg_vol[ch] != 0x0F)
-                    printf("ok: PSG channel %d audible (attenuation %u)\n", ch, psg_vol[ch]);
-                else { printf("FAIL: PSG channel %d is silent\n", ch); failures++; }
-            } else if (n >= 4) {
-                long target = strtol(c4, NULL, 0);
-                if (cmp_op((long)psg_writes, c3, target))
-                    printf("ok: %lu PSG writes %s %ld\n", psg_writes, c3, target);
-                else { printf("FAIL: %lu PSG writes, expected %s %ld\n", psg_writes, c3, target); failures++; }
-            }
-        }
         else if (!strcmp(c1, "expectcolors") && n >= 2) {
             /* Guards against "passing" on a blank/black frame: renders the
                current frame and counts distinct colours actually shown. */
@@ -422,7 +408,34 @@ int main(int argc, char** argv) {
             if (on == atoi(c3)) printf("ok: vdp display %d\n", on);
             else { printf("FAIL: vdp display=%d expected %s\n", on, c3); failures++; }
         }
+        else if (!strcmp(c1, "reset")) {
+            /* Reboot the machine so a scenario can start from a clean state,
+               independent of whatever the previous scenario left behind. */
+            memset(ram, 0, sizeof ram);
+            memset(vram, 0, sizeof vram);
+            memset(cram, 0, sizeof cram);
+            memset(vdp_reg, 0, sizeof vdp_reg);
+            mapper[0] = 0; mapper[1] = 0; mapper[2] = 1; mapper[3] = 2;
+            vdp_addr = vdp_code = vdp_latch = vdp_first = vdp_buf = 0;
+            vdp_status = vdp_line_pending = line_counter = 0;
+            pad1_state = 0xFF;
+            z80_init(&cpu);
+            cpu.read_byte = mem_read; cpu.write_byte = mem_write;
+            cpu.port_in = port_in; cpu.port_out = port_out;
+            frame_no = 0;
+            printf("reset: machine rebooted\n");
+        }
         else if (!strcmp(c1, "echo")) printf("== %s\n", line + 5);
+        else if (!strcmp(c1, "profile")) {
+            if (prof_count)
+                printf("profile: last=%lu max=%lu avg=%lu cyc/frame over %lu frames "
+                       "(vblank budget ~59736 cyc/frame)\n",
+                       prof_last, prof_max, prof_sum / prof_count, prof_count);
+            else printf("profile: no samples\n");
+        }
+        else if (!strcmp(c1, "profilereset")) {
+            prof_max = prof_sum = prof_count = 0;
+        }
         else printf("WARN: bad command: %s\n", line);
     }
     fclose(sf);

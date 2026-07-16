@@ -156,3 +156,77 @@ tap 2
 run 4
 expectpsg audible 0
 expectpsg audible 2
+
+echo [16] jump height: full held jump clears ~4 tiles (was ~2.5 before tuning)
+reset
+run 240
+waituntil on_ground == 1 300 w1
+hold 1
+run 40
+hold none
+expect py < 150 s16
+run 40
+waituntil on_ground == 1 200 w1
+
+echo [17] transformation BIRD: flapping gains height freely
+reset
+run 240
+waituntil on_ground == 1 300 w1
+poke form 1 w1
+poke form_timer 900 w2
+tap 1
+tap 1
+tap 1
+tap 1
+tap 1
+expect py < 195 s16
+expect form == 1 w1
+
+echo [18] transformation FROG: leaps higher than normal Jill's 66px
+reset
+run 240
+waituntil on_ground == 1 300 w1
+poke form 2 w1
+poke form_timer 900 w2
+hold 1
+run 30
+expect py < 110 s16
+hold none
+run 30
+
+echo [19] transformation reverts to Jill when the timer expires
+reset
+run 240
+poke form 1 w1
+poke form_timer 3 w2
+run 20
+expect form == 0 w1
+
+echo [20] enemy SHOOTER (level 1, type 48) fires a projectile at Jill
+reset
+run 240
+poke px 352
+poke py 200
+waituntil cur_level == 1 400 w1
+run 30
+poke px 1680
+poke py 745
+waituntil ep_active+0 == 1 500 w1
+
+echo [21] enemy contact still damages the player
+poke player_health 8 w1
+poke px 1700
+poke py 745
+waituntil player_health < 8 300 w1
+
+echo [22] enemy WALKER (level 2, type 29) patrols and reverses without falling
+reset
+run 240
+poke px 496
+poke py 170
+waituntil cur_level == 2 400 w1
+run 30
+poke px 340
+poke py 486
+waituntil en_vx+4 > 0 500 s16
+expect en_y+4 == 496 s16

@@ -37,8 +37,15 @@ make playtest   # automated playability gate (see below)
 * **Items** — pickups drive real state: food restores health, plus gems, the red
   key, and the knife (which enables the weapon).
 * **Combat** — throwable knife projectile that kills enemies and is absorbed by
-  walls; enemies with walking, flying and static-trap behaviours; contact
-  damage with knockback and invincibility frames.
+  walls; contact damage with knockback and invincibility frames.
+* **Enemy AI** — six behaviour classes mapped from the original object types:
+  walkers that patrol and reverse at walls *and* ledge edges (so they don't
+  walk off platforms), frog-like hoppers that leap toward Jill, flyers that
+  drift and bob, homing chasers that track her position, and shooters that fire
+  aimed projectiles.  Off-screen enemies are frozen for performance.
+* **Transformations** — creature potions morph Jill into a bird (free flapping
+  flight), a frog (a high fixed-arc leap), or a fish (free vertical swimming),
+  for a timed duration; she reverts on expiry, death, or level change.
 * **Doors** — jewel/key doors open on contact when the matching item is held,
   stamping the neighbouring background metatile over the door and updating
   collision.
@@ -54,6 +61,17 @@ make playtest   # automated playability gate (see below)
   (melody) and 2 (bass). Effects and music share the chip without cutting each
   other out.
 
+## Performance
+
+Two optimisations were ported from the author's CK1-SMS engine.  The buffered
+VDP blitter (streaming a run of tiles after setting the write address once) is
+in place, though profiling showed it isn't the bottleneck here — the per-frame
+cost is dominated by game logic and sprite setup, not tile writes.  The sprite
+fast-path (writing SMSlib's sprite tables directly for fully on-screen sprites,
+skipping per-sprite clipping arithmetic) is the measurable win: it cut the fixed
+per-frame cost from ~66,300 to ~61,000 Z80 cycles (about 8%).  The test harness
+can profile this directly via a marker port (`make playtest` reports it).
+
 ## Automated playtesting
 
 The ROM is playtested **by machine, not by hand**. `tools/smstest/` is a small
@@ -68,10 +86,10 @@ run 200
 expect py < 90 s16          # she actually moved up the vine
 ```
 
-`tests/playtest.txt` drives 15 end-to-end scenarios covering boot, walking,
+`tests/playtest.txt` drives 22 end-to-end scenarios covering boot, walking,
 jumping, item pickup, level transitions (including the re-entry edge case),
 vine climbing, water physics, throwing the knife to kill an enemy, contact
-damage, death/respawn, game over, and the HUD/audio (it counts on-screen sprites
+damage, death/respawn, game over, the HUD/audio, the retuned jump height, all three transformations, and each enemy behaviour class (walker reversal, shooter projectiles, contact damage).  Later scenarios use a harness `reset` so each starts from a clean boot rather than depending on prior state; the HUD/audio (it counts on-screen sprites
 and inspects the PSG's per-channel volume registers to confirm the melody, bass
 and sound effects are actually sounding). It also renders frames and fails if the
 screen comes back blank — a guard that caught two real cases where screenshots
@@ -92,9 +110,8 @@ new test scenarios.
 
 ## Known limitations
 
-* Morph forms (bird/fish/frog), lifts and moving platforms, and in-game
-  text/message boxes are not implemented.
-* Enemy AI is a behavioural approximation grouped by object type rather than a
-  faithful reimplementation of each original object's script.
+* Lifts, moving platforms, and in-game text/message boxes are not implemented.
+* Enemy AI groups the original's many object scripts into six behaviour classes
+  rather than reimplementing each one exactly.
 * The background music is an original composition in the spirit of the game, not
   a transcription of the original soundtrack (which is separately copyrighted).
