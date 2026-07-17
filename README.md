@@ -46,9 +46,10 @@ make playtest   # automated playability gate (see below)
 * **Transformations** — creature potions morph Jill into a bird (free flapping
   flight), a frog (a high fixed-arc leap), or a fish (free vertical swimming),
   for a timed duration; she reverts on expiry, death, or level change.
-* **Doors** — jewel/key doors open on contact when the matching item is held,
-  stamping the neighbouring background metatile over the door and updating
-  collision.
+* **Doors** — jewel/key doors open on contact when the matching item is held.
+  A door is taller than one metatile, so opening it clears every metatile row it
+  spans (not just the top) and updates collision for the whole opening, letting
+  the player walk through.
 * **Progression** — checkpoint-based level transitions (edge-triggered, so
   arriving inside a zone doesn't bounce you straight back), a map/level return
   system, health, 3 lives, respawn, and game over (resets progress and returns
@@ -57,9 +58,12 @@ make playtest   # automated playability gate (see below)
   a small 8x8 sprite font in the otherwise-unused sprite tiles 48-63; the digits
   update directly from game state.
 * **Audio** — PSG sound effects for jump, pickup, throw, hurt and doors on
-  channel 0 + noise, plus an original looping background tune on channels 1
-  (melody) and 2 (bass). Effects and music share the chip without cutting each
-  other out.
+  channel 0 + noise, plus original background music on channels 1 (melody) and 2
+  (bass): four distinct tracks (overworld, jungle, caves, water) selected per
+  level, and short event stingers for key pickups, level entry and death.  All
+  music is original composition in the game's general idiom, not a transcription
+  of the original soundtrack (which is separately copyrighted).  Effects, music
+  and stingers share the chip without cutting each other out.
 
 ## Performance
 
@@ -107,6 +111,16 @@ can be trusted to mean a game bug rather than an emulator bug.
 `tools/test_jill_data.py`, and `tools/extract_test_coords.py` dumps real map
 coordinates (transitions, items, enemies, vine/water/deadly cells) for authoring
 new test scenarios.
+
+## Hardware compatibility
+
+The ROM is tested to boot and run on accuracy-focused emulators (e.g. Emulicious)
+as well as lenient ones.  One earlier hazard is worth recording: an automated
+profiling hook wrote to I/O port 0x3E, which on the Master System is the memory-
+control register, not a spare port.  Lenient emulators ignored it, but an
+accurate one faithfully reconfigured the hardware and crashed at boot.  The
+profiling marker now lives in RAM instead (harmless on real hardware), and the
+only I/O ports the game touches are the PSG (0x7F) and the VDP (0xBE/0xBF).
 
 ## Known limitations
 

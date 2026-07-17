@@ -51,6 +51,7 @@ static uint8_t pad1_state = 0xFF;   /* active low: U D L R B1 B2 */
 static z80 cpu;
 static unsigned long frame_no;
 static unsigned long prof_start, prof_last, prof_max, prof_sum, prof_count;
+static uint32_t prof_addr = 0;   /* RAM address of the game's profiling marker */
 static int failures;
 
 /* ------------------------------------------------------------------ */
@@ -64,6 +65,14 @@ static uint8_t mem_read(void* ud, uint16_t addr) {
 }
 static void mem_write(void* ud, uint16_t addr, uint8_t val) {
     (void)ud;
+    if (prof_addr && addr == (uint16_t)prof_addr) {
+        if (val == 0xA0) prof_start = cpu.cyc;
+        else if (val == 0xA1 && prof_start) {
+            prof_last = cpu.cyc - prof_start;
+            if (prof_last > prof_max) prof_max = prof_last;
+            prof_sum += prof_last; prof_count++;
+        }
+    }
     if (addr >= 0xFFFC) mapper[addr - 0xFFFC] = val;
     if (addr >= 0xC000) ram[addr & 0x1FFF] = val;
 }
@@ -118,15 +127,6 @@ static uint8_t port_in(z80* z, uint8_t port) {
 }
 static void port_out(z80* z, uint8_t port, uint8_t val) {
     (void)z;
-    if (port == 0x3E) {                    /* profiling marker */
-        if (val == 0xA0) prof_start = cpu.cyc;
-        else if (val == 0xA1 && prof_start) {
-            prof_last = cpu.cyc - prof_start;
-            if (prof_last > prof_max) prof_max = prof_last;
-            prof_sum += prof_last; prof_count++;
-        }
-        return;
-    }
     if (port >= 0x40 && port < 0x80) return;              /* PSG */
     if (port >= 0x80 && port < 0xC0) {
         if (port & 1) vdp_ctrl_write(val); else vdp_data_write(val);
@@ -234,6 +234,8 @@ static void render_screenshot(const char* path) {
 typedef struct { char name[64]; uint32_t addr; } Sym;
 static Sym syms[4096]; static int nsyms;
 
+static int sym_lookup(const char* name, uint32_t* out);
+
 static void load_symbols(const char* path) {
     FILE* f = fopen(path, "r");
     if (!f) { printf("FAIL: cannot open symbols %s\n", path); failures++; return; }
@@ -247,6 +249,8 @@ static void load_symbols(const char* path) {
     }
     fclose(f);
     printf("symbols: loaded %d from %s\n", nsyms, path);
+    /* If the game exposes a RAM profiling marker, watch it automatically. */
+    { uint32_t a; if (sym_lookup("prof_marker", &a)) prof_addr = a; }
 }
 static int sym_lookup(const char* name, uint32_t* out) {
     char base[66]; int off = 0;

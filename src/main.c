@@ -23,7 +23,7 @@
 #define ITEM_BASE   ((unsigned char)VT_ITEMS)
 #define MAX_ITEMS 96
 #define MAX_DOORS 32
-#define MAX_OVR   32
+#define MAX_OVR   80
 #define MAX_ENEMIES 64
 
 #define WALK_ACC 96
@@ -111,12 +111,12 @@ static int  ep_x[MAX_EPROJ], ep_y[MAX_EPROJ];
 static int  ep_vx[MAX_EPROJ], ep_vy[MAX_EPROJ];
 unsigned char ep_active[MAX_EPROJ];
 
-static unsigned char n_doors;
-static unsigned int door_x[MAX_DOORS], door_y[MAX_DOORS];
-static unsigned char door_w[MAX_DOORS], door_h[MAX_DOORS], door_open[MAX_DOORS];
+unsigned char n_doors;
+unsigned int door_x[MAX_DOORS], door_y[MAX_DOORS];
+unsigned char door_w[MAX_DOORS], door_h[MAX_DOORS], door_open[MAX_DOORS];
 
-static unsigned char n_ovr;
-static unsigned char ovr_x[MAX_OVR], ovr_y[MAX_OVR], ovr_mt[MAX_OVR];
+unsigned char n_ovr;
+unsigned char ovr_x[MAX_OVR], ovr_y[MAX_OVR], ovr_mt[MAX_OVR];
 
 static unsigned int row_off[MAP_H];
 
@@ -169,42 +169,121 @@ static void load_hud_tiles(void) {
 /* for music, so an effect never silences the tune.                     */
 __sfr __at 0x7F PSGPort;
 
-/* Background music: an original composition, played on PSG channels 1  */
-/* (melody) and 2 (bass).                                               */
-/* Tone period = 3579545 / (32 * Hz).                                   */
+/* Background music: ALL ORIGINAL compositions written for this port, in the    */
+/* general upbeat jungle-platformer idiom.  Not a transcription of the original */
+/* game's soundtrack.  Melody plays on PSG channel 1, bass on channel 2;        */
+/* channel 0 and noise stay free for sound effects.                            */
+/* Tone period = 3579545 / (32 * Hz).                                          */
 #define P_REST 0
+#define P_C3   851
+#define P_D3   758
 #define P_E3   678
 #define P_F3   639
 #define P_G3   570
 #define P_A3   508
+#define P_B3   451
 #define P_C4   427
 #define P_D4   380
 #define P_E4   339
+#define P_F4   320
 #define P_G4   285
 #define P_A4   254
+#define P_B4   226
 #define P_C5   214
 #define P_D5   190
 #define P_E5   169
+#define P_F5   160
+#define P_G5   143
 
-#define MUS_LEN   32
-#define MUS_TICKS 9      /* game-loop iterations per step */
+#define TRACK_LEN 32   /* steps per track (melody and bass are parallel) */
+#define N_TRACKS  4
+#define MUS_TICKS 9    /* game-loop iterations per step (tempo) */
 
-static const unsigned int mus_mel[MUS_LEN] = {
+/* Track 0 - Overworld map: bright, marching, major key. */
+static const unsigned int trk0_mel[TRACK_LEN] = {
     P_E4, P_G4, P_A4, P_G4,  P_E4, P_D4, P_E4, P_REST,
     P_G4, P_A4, P_C5, P_A4,  P_G4, P_E4, P_D4, P_REST,
     P_E5, P_D5, P_C5, P_A4,  P_G4, P_A4, P_C5, P_REST,
     P_A4, P_G4, P_E4, P_D4,  P_C4, P_D4, P_E4, P_REST,
 };
-static const unsigned int mus_bass[MUS_LEN] = {
+static const unsigned int trk0_bass[TRACK_LEN] = {
     P_A3, 0, P_A3, 0,  P_E3, 0, P_E3, 0,
     P_F3, 0, P_F3, 0,  P_G3, 0, P_G3, 0,
     P_A3, 0, P_A3, 0,  P_F3, 0, P_F3, 0,
     P_C4, 0, P_G3, 0,  P_A3, 0, P_A3, 0,
 };
 
+/* Track 1 - Jungle/forest levels: busier, syncopated, a touch of swing. */
+static const unsigned int trk1_mel[TRACK_LEN] = {
+    P_A4, P_REST, P_C5, P_B4,  P_A4, P_G4, P_A4, P_REST,
+    P_E4, P_G4, P_A4, P_REST,  P_C5, P_B4, P_A4, P_G4,
+    P_A4, P_REST, P_C5, P_D5,  P_E5, P_D5, P_C5, P_B4,
+    P_A4, P_G4, P_E4, P_G4,    P_A4, P_REST, P_A4, P_REST,
+};
+static const unsigned int trk1_bass[TRACK_LEN] = {
+    P_A3, 0, 0, P_A3,  P_A3, 0, P_E3, 0,
+    P_C3, 0, 0, P_C3,  P_G3, 0, P_G3, 0,
+    P_F3, 0, 0, P_F3,  P_C3, 0, P_C3, 0,
+    P_A3, 0, P_E3, 0,  P_A3, 0, P_A3, 0,
+};
+
+/* Track 2 - Caves/underground: darker, minor, sparse and moody. */
+static const unsigned int trk2_mel[TRACK_LEN] = {
+    P_A4, P_REST, P_REST, P_C5,  P_B4, P_REST, P_A4, P_REST,
+    P_E4, P_REST, P_G4, P_REST,  P_A4, P_REST, P_REST, P_REST,
+    P_C5, P_REST, P_B4, P_A4,    P_G4, P_REST, P_E4, P_REST,
+    P_F4, P_REST, P_E4, P_D4,    P_E4, P_REST, P_REST, P_REST,
+};
+static const unsigned int trk2_bass[TRACK_LEN] = {
+    P_A3, 0, 0, 0,  P_A3, 0, 0, 0,
+    P_E3, 0, 0, 0,  P_E3, 0, 0, 0,
+    P_F3, 0, 0, 0,  P_C3, 0, 0, 0,
+    P_D3, 0, 0, 0,  P_E3, 0, 0, 0,
+};
+
+/* Track 3 - Water levels: flowing, gentle, lilting triplet feel. */
+static const unsigned int trk3_mel[TRACK_LEN] = {
+    P_C5, P_D5, P_E5, P_REST,  P_D5, P_C5, P_A4, P_REST,
+    P_G4, P_A4, P_C5, P_REST,  P_A4, P_G4, P_E4, P_REST,
+    P_C5, P_D5, P_E5, P_G5,    P_E5, P_D5, P_C5, P_REST,
+    P_A4, P_C5, P_A4, P_G4,    P_E4, P_G4, P_A4, P_REST,
+};
+static const unsigned int trk3_bass[TRACK_LEN] = {
+    P_C3, 0, P_G3, 0,  P_C3, 0, P_G3, 0,
+    P_C3, 0, P_E3, 0,  P_C3, 0, P_E3, 0,
+    P_F3, 0, P_C4, 0,  P_F3, 0, P_C4, 0,
+    P_A3, 0, P_E3, 0,  P_A3, 0, P_A3, 0,
+};
+
+static const unsigned int *const track_mel[N_TRACKS]  = { trk0_mel,  trk1_mel,  trk2_mel,  trk3_mel  };
+static const unsigned int *const track_bass[N_TRACKS] = { trk0_bass, trk1_bass, trk2_bass, trk3_bass };
+
+/* Map each level to a track (levels beyond the table default to jungle). */
+static unsigned char track_for_level(unsigned char lvl) {
+    switch (lvl) {
+    case 0:            return 0;   /* overworld map    */
+    case 1: case 2:    return 1;   /* jungle           */
+    case 3: case 4:    return 2;   /* caves            */
+    case 5: case 6:    return 3;   /* water            */
+    default:           return 1;
+    }
+}
+
 unsigned char music_on = 1;
+unsigned char music_track;      /* which track is currently playing */
 unsigned char music_step;
 static unsigned char music_t;
+
+/* Event stingers: short original flourishes that briefly take over the melody
+   channel (channel 1) without disturbing the bass or sound effects. */
+#define STINGER_NONE  0
+#define STINGER_KEY   1   /* picked up a key / crystal */
+#define STINGER_CLEAR 2   /* completed / entered a new level */
+#define STINGER_DEATH 3
+static const unsigned int sting_key[4]   = { P_C5, P_E5, P_G5, P_REST };
+static const unsigned int sting_clear[4] = { P_C5, P_G4, P_C5, P_E5 };
+static const unsigned int sting_death[4] = { P_A4, P_F4, P_D4, P_C4 };
+unsigned char stinger_kind, stinger_step, stinger_t;
 
 static void psg_tone(unsigned char ch, unsigned int f, unsigned char att) {
     unsigned char latch = (unsigned char)(0x80 | (ch << 5));
@@ -218,17 +297,47 @@ static void music_silence(void) {
     PSGPort = 0xDF;   /* ch2 off */
 }
 
+static void music_set_track(unsigned char lvl) {
+    unsigned char t = track_for_level(lvl);
+    if (t != music_track) { music_track = t; music_step = 0; music_t = 0; }
+}
+
+static void stinger_play(unsigned char kind) {
+    stinger_kind = kind;
+    stinger_step = 0;
+    stinger_t = 0;
+}
+
 static void music_update(void) {
     unsigned int m, b;
     if (!music_on) return;
+
+    /* A stinger briefly overrides the melody channel; the bass keeps playing. */
+    if (stinger_kind) {
+        if (stinger_t) { stinger_t--; }
+        else {
+            const unsigned int *s = (stinger_kind == STINGER_KEY)   ? sting_key :
+                                    (stinger_kind == STINGER_CLEAR) ? sting_clear :
+                                                                      sting_death;
+            if (stinger_step < 4) {
+                if (s[stinger_step]) psg_tone(1, s[stinger_step], 4);
+                stinger_step++;
+                stinger_t = 5;
+            } else {
+                stinger_kind = STINGER_NONE;   /* hand the melody back to the track */
+            }
+        }
+    }
+
     if (music_t) { music_t--; return; }
     music_t = MUS_TICKS;
-    m = mus_mel[music_step];
-    b = mus_bass[music_step];
-    if (m) psg_tone(1, m, 6); else PSGPort = 0xBF;
+    m = track_mel[music_track][music_step];
+    b = track_bass[music_track][music_step];
+    /* Don't touch the melody channel while a stinger owns it. */
+    if (!stinger_kind) { if (m) psg_tone(1, m, 6); else PSGPort = 0xBF; }
     if (b) psg_tone(2, b, 9);
     music_step++;
-    if (music_step >= MUS_LEN) music_step = 0;
+    if (music_step >= TRACK_LEN) music_step = 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -314,9 +423,12 @@ static unsigned char flag_at_px(int x, int y) {
 /* name-table wrap).  This is the hot path during scrolling.            */
 __sfr __at 0xBE VDPDataPort;
 __sfr __at 0xBF VDPCtrlPort;
-/* Profiling marker: writes to an unused port that the test harness watches to
-   measure the cost of one game-loop iteration.  Harmless on real hardware. */
-__sfr __at 0x3E PROF_PORT;
+/* Profiling marker in RAM: the test harness watches writes to this byte to time
+   one game-loop iteration.  Unlike a port write, storing to RAM has no effect on
+   real hardware, so this is safe to leave in the shipping ROM.  (An earlier
+   version wrote to I/O port 0x3E, which is the SMS memory-control register --
+   harmless on lenient emulators but a hard crash on accurate ones.) */
+volatile unsigned char prof_marker;
 
 static unsigned int colbuf[28];
 static unsigned int colbuf_a;          /* VRAM write address of column top */
@@ -718,6 +830,7 @@ static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy) {
     trigger_cool = 30;
     trans_latch = 1;   /* assume arrival may be inside a zone; require exit first */
     SMS_displayOn();
+    music_set_track(lvl);
 }
 
 static void check_transitions(void) {
@@ -741,6 +854,7 @@ static void check_transitions(void) {
             } else if (target == 0 && return_valid) {
                 sx = return_x; sy = return_y + 24;
             }
+            stinger_play(STINGER_CLEAR);
             load_level_at(target, sx, sy);
             return;
         }
@@ -763,8 +877,8 @@ static void check_items(void) {
                 if (player_health < 8) player_health += 2;
                 if (player_health > 8) player_health = 8;
             }
-            if (item_type[i] == 33) { has_crystal = 1; gems++; }
-            if (item_type[i] == 14) has_red_key = 1;
+            if (item_type[i] == 33) { has_crystal = 1; gems++; stinger_play(STINGER_KEY); }
+            if (item_type[i] == 14) { has_red_key = 1; stinger_play(STINGER_KEY); }
             if (item_type[i] == 2)  has_weapon = 1;
             if (item_type[i] == 28 && (item_param[i] == 2 || item_param[i] == 8)) has_weapon = 1;
             /* Creature potions (object type 28) grant a timed morph.  The
@@ -782,18 +896,23 @@ static void check_items(void) {
 }
 
 static void open_door(unsigned char i) {
-    unsigned char mx, my, repl;
+    unsigned char mx, my, my2, repl, row;
     if (door_open[i]) return;
     door_open[i] = 1;
     sfx_play(SFX_DOOR);
-    mx = (unsigned char)(door_x[i] >> 4);
-    my = (unsigned char)(door_y[i] >> 4);
-    /* Map jewel doors are represented as one solid MAPDOOR metatile.  Stamp
-       the neighbouring background tile over it and make collision use that
-       replacement. */
+    mx  = (unsigned char)(door_x[i] >> 4);
+    my  = (unsigned char)(door_y[i] >> 4);
+    /* A door is door_h pixels tall (24 for the jewel/key doors), which spans
+       more than one 16px metatile row.  Clear EVERY metatile the door covers,
+       not just the top one -- otherwise the lower cell keeps its solid MAPDOOR
+       collision and the player can see the top open but can't walk through. */
+    my2 = (unsigned char)((door_y[i] + door_h[i] - 1) >> 4);
+    /* Use a neighbouring background tile as the replacement fill. */
     repl = raw_mt_at_cell((unsigned char)(mx + 1), my);
-    if (n_ovr < MAX_OVR) {
-        ovr_x[n_ovr] = mx; ovr_y[n_ovr] = my; ovr_mt[n_ovr] = repl; n_ovr++;
+    for (row = my; row <= my2; row++) {
+        if (n_ovr < MAX_OVR) {
+            ovr_x[n_ovr] = mx; ovr_y[n_ovr] = row; ovr_mt[n_ovr] = repl; n_ovr++;
+        }
     }
     redraw_needed = 1;
 }
@@ -815,6 +934,7 @@ static void check_doors(void) {
 static void load_level_at(unsigned char lvl, unsigned int sx, unsigned int sy);
 
 static void respawn_player(void) {
+    stinger_play(STINGER_DEATH);
     if (lives) lives--;
     if (!lives) {
         /* Game over: reset progress and restart on the overworld map. */
@@ -1195,7 +1315,7 @@ void main(void) {
 
     for (;;) {
         SMS_waitForVBlank();
-        PROF_PORT = 0xA0;   /* profiling: game-loop body start */
+        prof_marker = 0xA0;   /* profiling: game-loop body start (RAM, safe) */
         UNSAFE_SMS_copySpritestoSAT();
         apply_hw_scroll();
         sfx_update();
@@ -1220,7 +1340,7 @@ void main(void) {
         upload_player_frame();
         SMS_mapROMBank(ld->data_bank);
         build_sprites();
-        PROF_PORT = 0xA1;   /* profiling: game-loop body end */
+        prof_marker = 0xA1;   /* profiling: game-loop body end (RAM, safe) */
     }
 }
 

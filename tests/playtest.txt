@@ -230,3 +230,55 @@ poke px 340
 poke py 486
 waituntil en_vx+4 > 0 500 s16
 expect en_y+4 == 496 s16
+
+echo [23] door: unlocking a jewel door clears its FULL height (both metatile rows)
+reset
+run 240
+poke px 496
+poke py 170
+waituntil cur_level == 2 400 w1
+run 30
+poke has_crystal 1 w1
+poke px 1712
+poke py 432
+waituntil door_open+0 == 1 150 w1
+expect n_ovr >= 2 w1
+expect ovr_y+0 == 27 w1
+expect ovr_y+1 == 28 w1
+
+echo [24] music: each level selects its own original track
+reset
+run 240
+expect music_track == 0 w1
+poke px 352
+poke py 200
+waituntil cur_level == 1 400 w1
+run 60
+expect music_track == 1 w1
+
+echo [25] music: caves and water levels use distinct tracks
+reset
+run 240
+poke px 736
+poke py 140
+waituntil cur_level == 3 400 w1
+run 60
+expect music_track == 2 w1
+reset
+run 240
+poke px 912
+poke py 954
+waituntil cur_level == 5 400 w1
+run 80
+expect music_track == 3 w1
+
+echo [26] music: event stingers fire on key pickup and level entry
+reset
+run 240
+poke px 64
+poke py 130
+waituntil stinger_kind == 1 200 w1
+poke px 352
+poke py 200
+waituntil cur_level == 1 400 w1
+waituntil stinger_kind == 2 60 w1
