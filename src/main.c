@@ -418,24 +418,14 @@ static unsigned char flag_at_px(int x, int y) {
 /* Buffered background streaming, ported from the CK1-SMS engine.       */
 /* Instead of one SMS_setTileatXY per tile (which re-issues the VRAM     */
 /* address every call), we build a run of tiles in a little-endian int   */
-/* buffer and stream it through the VDP data port after setting the      */
-/* auto-incrementing address just once (or twice, split at the 32-column */
-/* name-table wrap).  This is the hot path during scrolling.            */
-__sfr __at 0xBE VDPDataPort;
-__sfr __at 0xBF VDPCtrlPort;
+/* buffer and commit it with SMSlib's timing-safe tilemap loaders.       */
+/* This is the hot path during scrolling.                                */
 /* Profiling marker in RAM: the test harness watches writes to this byte to time
    one game-loop iteration.  Unlike a port write, storing to RAM has no effect on
    real hardware, so this is safe to leave in the shipping ROM.  (An earlier
    version wrote to I/O port 0x3E, which is the SMS memory-control register --
    harmless on lenient emulators but a hard crash on accurate ones.) */
 volatile unsigned char prof_marker;
-
-static unsigned int colbuf[28];
-static unsigned int colbuf_a;          /* VRAM write address of column top */
-
-static unsigned int rowbuf[32];
-static unsigned int rowbuf_a0, rowbuf_a1;  /* run starts (a1 = after NT wrap) */
-static unsigned char rowbuf_n1;            /* entries before the wrap */
 
 static unsigned int tile_at_subcell(unsigned int wc, unsigned int wr) {
     unsigned char mx, my, mt;
@@ -446,53 +436,34 @@ static unsigned int tile_at_subcell(unsigned int wc, unsigned int wr) {
     return ld->mtdef[((unsigned int)mt << 2) + ((wr & 1u) << 1) + (wc & 1u)] + BG_BASE;
 }
 
-/* Column: 28 tiles down a single name-table column (no horizontal wrap). */
+/* Column: 28 tiles down one name-table column.  Uses SMSlib's timing-safe
+   per-tile SMS_setTileatXY, writing each tile to exactly the (x,y) the original
+   raw-port version targeted.  The visible 28-row window is positioned by the
+   Y-scroll register inside the 32-row name table, so the destination row wraps
+   at 28 -- we compute it per tile exactly as the original's `wr % 28` did. */
 static void draw_col_now(unsigned int wc) {
     unsigned char r;
-    const unsigned char *pt;
     unsigned char ntx = (unsigned char)(wc & 31u);
-    unsigned int base = SMS_PNTAddress | ((unsigned int)ntx << 1);
     SMS_mapROMBank(ld->data_bank);
     for (r = 0; r < 28; r++) {
         unsigned int wr = (unsigned int)cam_ty + r;
-        /* rows step by 64 bytes (32 tiles * 2) and wrap the 28-row window */
-        unsigned int slot = (unsigned int)((wr) % 28u);
-        colbuf[slot] = tile_at_subcell(wc, wr);
-    }
-    /* stream in screen order, address set once per tile-row because the
-       28-row vertical window wraps inside the 32-row name table */
-    pt = (const unsigned char *)colbuf;
-    for (r = 0; r < 28; r++) {
-        unsigned int addr = base + ((unsigned int)r << 6);
-        VDPCtrlPort = (unsigned char)addr;
-        VDPCtrlPort = (unsigned char)((addr >> 8) | 0x40);
-        VDPDataPort = *pt++;
-        VDPDataPort = *pt++;
+        unsigned char nty = (unsigned char)(wr % 28u);
+        SMS_setTileatXY(ntx, nty, tile_at_subcell(wc, wr));
     }
 }
 
-/* Row: 32 tiles across, split into two runs at the 32-column NT wrap. */
+/* Row: 32 tiles across one name-table row.  Uses SMSlib's timing-safe per-tile
+   SMS_setTileatXY.  The name table holds world columns cam_tx+1..cam_tx+32
+   wrapped into 32 columns, so each tile's destination column is
+   (cam_tx + 1 + c) & 31, exactly as the original raw-port version computed. */
 static void draw_row_now(unsigned int wr) {
-    unsigned char c, ntx0;
-    const unsigned char *pt;
-    unsigned int rowbase = SMS_PNTAddress | (((unsigned int)(wr % 28u)) << 6);
-    unsigned char n1;
+    unsigned char c;
+    unsigned char nty = (unsigned char)(wr % 28u);
     SMS_mapROMBank(ld->data_bank);
-    ntx0 = (unsigned char)(((unsigned int)cam_tx + 1u) & 31u);
-    rowbuf_a0 = rowbase | ((unsigned int)ntx0 << 1);
-    rowbuf_a1 = rowbase;
-    rowbuf_n1 = (unsigned char)(32u - ntx0);
-    for (c = 0; c < 32; c++)
-        rowbuf[c] = tile_at_subcell((unsigned int)cam_tx + 1u + c, wr);
-    n1 = rowbuf_n1;
-    pt = (const unsigned char *)rowbuf;
-    VDPCtrlPort = (unsigned char)rowbuf_a0;
-    VDPCtrlPort = (unsigned char)((rowbuf_a0 >> 8) | 0x40);
-    for (c = 0; c < n1; c++) { VDPDataPort = *pt++; VDPDataPort = *pt++; }
-    if (c < 32) {
-        VDPCtrlPort = (unsigned char)rowbuf_a1;
-        VDPCtrlPort = (unsigned char)((rowbuf_a1 >> 8) | 0x40);
-        for (; c < 32; c++) { VDPDataPort = *pt++; VDPDataPort = *pt++; }
+    for (c = 0; c < 32; c++) {
+        unsigned int wc = (unsigned int)cam_tx + 1u + c;
+        unsigned char ntx = (unsigned char)(wc & 31u);
+        SMS_setTileatXY(ntx, nty, tile_at_subcell(wc, wr));
     }
 }
 
@@ -1316,7 +1287,7 @@ void main(void) {
     for (;;) {
         SMS_waitForVBlank();
         prof_marker = 0xA0;   /* profiling: game-loop body start (RAM, safe) */
-        UNSAFE_SMS_copySpritestoSAT();
+        SMS_copySpritestoSAT();
         apply_hw_scroll();
         sfx_update();
         music_update();
