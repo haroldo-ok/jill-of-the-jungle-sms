@@ -1,9 +1,11 @@
-00 MAP.JN1   mt= 51 tiles_bytes= 6528 trans=13 items= 11 doors= 9 enemies=  0 spawn=(96,40) strings=18
-01 1.JN1     mt= 56 tiles_bytes= 7168 trans= 2 items= 52 doors= 1 enemies= 41 spawn=(112,160) strings=6
-02 2.JN1     mt= 87 tiles_bytes=11136 trans= 2 items= 29 doors= 2 enemies= 37 spawn=(64,928) strings=4
-03 3.JN1     mt= 33 tiles_bytes= 4224 trans= 2 items= 56 doors= 4 enemies= 28 spawn=(1936,736) strings=10
-04 4.JN1     mt= 27 tiles_bytes= 3456 trans= 2 items= 20 doors= 6 enemies=  4 spawn=(1056,928) strings=6
-05 6.JN1     mt= 30 tiles_bytes= 3840 trans= 3 items= 34 doors=10 enemies= 25 spawn=(704,496) strings=8
-06 9.JN1     mt= 77 tiles_bytes= 9856 trans= 2 items= 42 doors= 9 enemies= 31 spawn=(32,224) strings=6
-07 50.JN1    mt= 23 tiles_bytes= 2944 trans= 0 items=  3 doors= 0 enemies=  0 spawn=(96,912) strings=52
-08 INTRO.JN1 mt= 53 tiles_bytes= 6784 trans= 0 items= 13 doors= 0 enemies=  0 spawn=(1960,944) strings=137
+00 MAP    mt= 60 bgtiles=160 sprtiles=166 objs= 62 mark=42 strips=9 pool=148 vram_bg=[168..327]+0
+01 1      mt= 64 bgtiles=153 sprtiles=478 objs=121 mark=41 strips=20 pool=148 vram_bg=[168..320]+0
+02 2      mt= 89 bgtiles=263 sprtiles=414 objs= 86 mark=3 strips=16 pool=148 vram_bg=[168..430]+0
+03 3      mt= 33 bgtiles=124 sprtiles=246 objs=116 mark=0 strips=15 pool=148 vram_bg=[168..291]+0
+04 4      mt= 27 bgtiles= 95 sprtiles=362 objs= 71 mark=0 strips=14 pool=148 vram_bg=[168..262]+0
+05 6      mt= 30 bgtiles=111 sprtiles=342 objs=119 mark=0 strips=16 pool=148 vram_bg=[168..278]+0
+06 9      mt= 81 bgtiles=229 sprtiles=596 objs=109 mark=5 strips=24 pool=148 vram_bg=[168..396]+0
+07 50     mt= 23 bgtiles= 77 sprtiles=262 objs= 20 mark=0 strips=9 pool=88 vram_bg=[108..184]+0
+08 D0     mt= 41 bgtiles=127 sprtiles=382 objs= 72 mark=0 strips=16 pool=148 vram_bg=[168..294]+0
+09 D1     mt= 36 bgtiles=114 sprtiles=198 objs= 76 mark=0 strips=13 pool=148 vram_bg=[168..281]+0
+10 D2     mt= 28 bgtiles= 66 sprtiles=206 objs= 34 mark=0 strips=14 pool=148 vram_bg=[168..233]+0
