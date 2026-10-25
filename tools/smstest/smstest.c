@@ -37,6 +37,7 @@ static uint32_t rom_size, rom_banks;
 static uint8_t ram[RAM_SIZE];
 static uint8_t mapper[4] = {0, 0, 1, 2}; /* FFFC..FFFF */
 
+static uint8_t sram[0x8000];
 static uint8_t vram[0x4000];
 static uint8_t cram[32];
 static uint8_t vdp_reg[16];
@@ -50,6 +51,11 @@ static uint8_t pad1_state = 0xFF;   /* active low: U D L R B1 B2 */
 
 static z80 cpu;
 static unsigned long frame_no;
+static unsigned watch_lo, watch_hi, watch_n;
+static unsigned long psg_writes; static int psg_log;
+static unsigned long prof_cyc[65536 * 2]; static int prof_on;
+static unsigned rw_lo, rw_hi, rw_n;
+static unsigned bp_addr, bp_n, spw_on, prev_pc, prev_sp, hist_pc[256], hist_sp[256], hist_i;
 static int failures;
 
 /* ------------------------------------------------------------------ */
@@ -58,12 +64,17 @@ static uint8_t mem_read(void* ud, uint16_t addr) {
     if (addr < 0x0400) return rom[addr];                 /* fixed first 1KB */
     if (addr < 0x4000) return rom[((mapper[1] % rom_banks) * 0x4000u) + addr];
     if (addr < 0x8000) return rom[((mapper[2] % rom_banks) * 0x4000u) + (addr - 0x4000)];
-    if (addr < 0xC000) return rom[((mapper[3] % rom_banks) * 0x4000u) + (addr - 0x8000)];
+    if (addr < 0xC000) {
+        if (mapper[0] & 0x08) return sram[((mapper[0] & 0x04) ? 0x4000u : 0) + (addr - 0x8000)];
+        return rom[((mapper[3] % rom_banks) * 0x4000u) + (addr - 0x8000)];
+    }
     return ram[addr & 0x1FFF];
 }
 static void mem_write(void* ud, uint16_t addr, uint8_t val) {
     (void)ud;
+    if (addr >= 0x8000 && addr < 0xC000 && (mapper[0] & 0x08)) { sram[((mapper[0] & 0x04) ? 0x4000u : 0) + (addr - 0x8000)] = val; return; }
     if (addr >= 0xFFFC) mapper[addr - 0xFFFC] = val;
+    if (rw_n && addr >= rw_lo && addr <= rw_hi && addr >= 0xC000) { printf("rwatch: frame %lu pc=%04X addr=%04X val=%02X sp=%04X\n", frame_no, cpu.pc, addr, val, cpu.sp); rw_n--; }
     if (addr >= 0xC000) ram[addr & 0x1FFF] = val;
 }
 
@@ -79,7 +90,17 @@ static void vdp_ctrl_write(uint8_t v) {
 static void vdp_data_write(uint8_t v) {
     vdp_first = 0;
     if (vdp_code == 3) cram[vdp_addr & 0x1F] = v;
-    else vram[vdp_addr & 0x3FFF] = v;
+    else {
+        unsigned a = vdp_addr & 0x3FFF;
+        if (watch_n && a >= watch_lo && a < watch_hi) {
+            printf("watch: frame %lu pc=%04X sp=%04X stack=%02X%02X %02X%02X %02X%02X %02X%02X addr=%04X val=%02X\n", frame_no, cpu.pc, cpu.sp,
+                   ram[(cpu.sp+1)&0x1FFF], ram[cpu.sp&0x1FFF], ram[(cpu.sp+3)&0x1FFF], ram[(cpu.sp+2)&0x1FFF],
+                   ram[(cpu.sp+5)&0x1FFF], ram[(cpu.sp+4)&0x1FFF], ram[(cpu.sp+7)&0x1FFF], ram[(cpu.sp+6)&0x1FFF], a, v);
+            if (watch_n == 1) { printf("stack:"); for (int q = 0; q < 40; q++) printf(" %02X%02X", ram[(cpu.sp+2*q+1)&0x1FFF], ram[(cpu.sp+2*q)&0x1FFF]); printf("\nregs: af=%02X bc=%02X%02X de=%02X%02X hl=%02X%02X ix=%04X\n", cpu.a, cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l, cpu.ix); }
+            watch_n--;
+        }
+        vram[a] = v;
+    }
     vdp_addr = (vdp_addr + 1) & 0x3FFF;
     vdp_buf = v;
 }
@@ -117,7 +138,7 @@ static uint8_t port_in(z80* z, uint8_t port) {
 }
 static void port_out(z80* z, uint8_t port, uint8_t val) {
     (void)z;
-    if (port >= 0x40 && port < 0x80) return;              /* PSG */
+    if (port >= 0x40 && port < 0x80) { psg_writes++; if (psg_log) printf("psg %02X (frame %lu)\n", val, frame_no); return; }              /* PSG */
     if (port >= 0x80 && port < 0xC0) {
         if (port & 1) vdp_ctrl_write(val); else vdp_data_write(val);
     }
@@ -128,7 +149,22 @@ static void run_line(void) {
     unsigned long target = cpu.cyc + CYCLES_PER_LINE;
     while (cpu.cyc < target) {
         if (vdp_irq_active() && cpu.iff1) cpu.int_pending = true;
+        if (bp_n && cpu.pc == bp_addr) {
+            printf("bp: frame %lu pc=%04X sp=%04X ret=%02X%02X%02X%02X af=%02X bc=%02X%02X de=%02X%02X hl=%02X%02X\n", frame_no, cpu.pc, cpu.sp,
+                   ram[(cpu.sp+1)&0x1FFF], ram[cpu.sp&0x1FFF], ram[(cpu.sp+3)&0x1FFF], ram[(cpu.sp+2)&0x1FFF], cpu.a, cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l);
+            printf("bpstack:"); for (int q = 0; q < 60; q++) printf(" %02X%02X", ram[(cpu.sp+2*q+1)&0x1FFF], ram[(cpu.sp+2*q)&0x1FFF]); printf("\n");
+            bp_n--;
+        }
+        if (spw_on && (cpu.sp < 0xC000 || cpu.pc >= 0xC000)) {
+            printf("spwatch: frame %lu pc=%04X prev_pc=%04X prev_sp=%04X sp=%04X\n", frame_no, cpu.pc, prev_pc, prev_sp, cpu.sp);
+            for (int q = 0; q < 256; q++) { unsigned k = (hist_i + q) & 255; printf("  h %04X sp=%04X\n", hist_pc[k], hist_sp[k]); }
+            printf("  ix=%04X iy=%04X\n", cpu.ix, cpu.iy);
+            spw_on = 0;
+        }
+        unsigned long c0 = cpu.cyc; unsigned pc0 = cpu.pc;
+        prev_pc = cpu.pc; prev_sp = cpu.sp; if (spw_on) { hist_pc[hist_i & 255] = cpu.pc; hist_sp[hist_i & 255] = cpu.sp; hist_i++; }
         z80_step(&cpu);
+        if (prof_on) prof_cyc[pc0 + ((pc0 >= 0x4000 && pc0 < 0x8000 && mapper[2] == 31) ? 65536 : 0)] += cpu.cyc - c0;
     }
 }
 static void run_frame(void) {
@@ -181,22 +217,24 @@ static void render_screenshot(const char* path) {
             }
         }
         int sh = spr16 ? 16 : 8;
-        for (int i = 63; i >= 0; i--) {
-            int sy = vram[satbase + i];
-            if (sy == 0xD0) { /* terminator: skip sprites after it */
-                for (int j = i; j < 64; j++) {} /* handled by scanning order below */
-            }
-        }
         /* find terminator */
         int nspr = 64;
         for (int i = 0; i < 64; i++) if (vram[satbase + i] == 0xD0) { nspr = i; break; }
-        for (int i = nspr - 1; i >= 0; i--) {
-            int sy = vram[satbase + i] + 1;
-            int sx = vram[satbase + 128 + i * 2];
-            uint16_t tile = vram[satbase + 128 + i * 2 + 1];
-            if (spr16) tile &= 0xFE;
-            for (int ty = 0; ty < sh; ty++) {
-                int y = sy + ty; if (y < 0 || y >= 192) continue;
+        for (int y = 0; y < 192; y++) {
+            int cnt = 0, idx[8];
+            for (int i = 0; i < nspr && cnt < 8; i++) {
+                int sy = vram[satbase + i] + 1;
+                if (sy > 240) sy -= 256;
+                if (y >= sy && y < sy + sh) idx[cnt++] = i;
+            }
+            for (int k = cnt - 1; k >= 0; k--) {
+                int i = idx[k];
+                int sy = vram[satbase + i] + 1;
+                if (sy > 240) sy -= 256;
+                int sx = vram[satbase + 128 + i * 2];
+                uint16_t tile = vram[satbase + 128 + i * 2 + 1];
+                if (spr16) tile &= 0xFE;
+                int ty = y - sy;
                 uint16_t ta = sprtiles + (tile + (ty >> 3)) * 32 + (ty & 7) * 4;
                 for (int tx = 0; tx < 8; tx++) {
                     int x = sx + tx; if (x < 0 || x >= 256) continue;
@@ -357,6 +395,21 @@ int main(int argc, char** argv) {
                 printf("print: %s = %ld (frame %lu)\n", c2, read_val(addr, w), frame_no);
         }
         else if (!strcmp(c1, "screenshot") && n >= 2) render_screenshot(c2);
+        else if (!strcmp(c1, "vregs")) { printf("vregs(frame %lu):", frame_no); for (int q = 0; q < 11; q++) printf(" %02X", vdp_reg[q]); printf("\n"); }
+        else if (!strcmp(c1, "rwatch") && n >= 4) { rw_lo = strtoul(c2, 0, 16); rw_hi = strtoul(c3, 0, 16); rw_n = strtoul(c4, 0, 0); }
+        else if (!strcmp(c1, "profstart")) { prof_on = 1; memset(prof_cyc, 0, sizeof prof_cyc); }
+        else if (!strcmp(c1, "profdump") && n >= 2) { FILE* pf = fopen(c2, "w"); prof_on = 0; for (int q = 0; q < 131072; q++) if (prof_cyc[q]) fprintf(pf, "%05X %lu\n", q, prof_cyc[q]); fclose(pf); }
+        else if (!strcmp(c1, "psgcount")) printf("psgcount: %lu (frame %lu)\n", psg_writes, frame_no);
+        else if (!strcmp(c1, "psglog")) psg_log = 1;
+        else if (!strcmp(c1, "pause")) cpu.nmi_pending = 1;
+        else if (!strcmp(c1, "spwatch")) spw_on = 1;
+        else if (!strcmp(c1, "pc")) printf("pc: %04X sp: %04X\n", cpu.pc, cpu.sp);
+        else if (!strcmp(c1, "bp") && n >= 3) { bp_addr = strtoul(c2, 0, 16); bp_n = strtoul(c3, 0, 0); }
+        else if (!strcmp(c1, "watch") && n >= 4) { watch_lo = strtoul(c2, 0, 0); watch_hi = strtoul(c3, 0, 0); watch_n = strtoul(c4, 0, 0); }
+        else if (!strcmp(c1, "dumpvram") && n >= 2) {
+            FILE* df = fopen(c2, "wb");
+            if (df) { fwrite(vram, 1, sizeof vram, df); fwrite(cram, 1, sizeof cram, df); fwrite(vdp_reg, 1, sizeof vdp_reg, df); fclose(df); }
+        }
         else if (!strcmp(c1, "expectcolors") && n >= 2) {
             /* Guards against "passing" on a blank/black frame: renders the
                current frame and counts distinct colours actually shown. */

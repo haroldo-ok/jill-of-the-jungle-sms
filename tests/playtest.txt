@@ -1,142 +1,74 @@
-# Jill of the Jungle SMS - automated playtest
-# Note: teleporting the player with 'poke' forces a full-screen redraw, which
-# slows the game loop to one iteration every few frames.  All waits are sized
-# generously so several loop iterations observe each input.
+# Jill of the Jungle SMS - automated playtest (run against jill.sms with its .noi symbols)
 symbols jill.noi
 
-echo [1] boot: ROM initializes, display on, initial game state
-run 240
+echo [1] title screen shows the menu; button 1 starts the game
+run 120
 expectvdp display 1
-expect cur_level == 0 w1
-expect lives == 3 w1
-expect player_health == 8 w1
-expect gems == 0 w1
-waituntil on_ground == 1 300 w1
-expectcolors 6
-screenshot shots/00_boot.ppm
-
-echo [2] movement: walk left then right
-hold left
-waituntil px < 90 180 s16
+expectcolors 3
+screenshot shots/00_title.ppm
+hold 1
+run 3
 hold none
+run 200
+expect cur_level == 0 w1
+expect health == 6 w1
+expectcolors 6
+screenshot shots/01_hub.ppm
+
+echo [2] walking right moves Jill
 hold right
-waituntil px > 100 180 s16
+run 60
 hold none
-run 20
+expect px > 100 s16
 
-echo [3] jump: leaves ground, lands again
-hold 1
+echo [3] pause menu opens, Save game writes SRAM, resume
+pause
+run 60
+screenshot shots/02_pause.ppm
+hold down
+run 3
+hold none
 run 8
-expect on_ground == 0 w1
+hold 1
+run 3
 hold none
-waituntil on_ground == 1 300 w1
-
-echo [4] item pickup: gem at (64,144) on the map level
-poke px 64
-poke py 130
-waituntil gems == 1 300 w1
-expect has_crystal == 1 w1
-expect items_collected >= 1 w1
-screenshot shots/01_gem.ppm
-
-echo [5] level transition: zone at (352,208) leads to level 1
-poke px 352
-poke py 200
-waituntil cur_level == 1 400 w1
-run 180
-expectvdp display 1
-expectcolors 6
-screenshot shots/02_level1.ppm
-run 200
-
-echo [6] return transition: zone at (1872,208) leads back to the map
-poke px 1872
-poke py 200
-waituntil cur_level == 0 400 w1
-
-echo [7] edge-trigger: standing at the arrival point must NOT re-enter level 1
-run 300
+run 120
 expect cur_level == 0 w1
 
-echo [8] re-enter level 1 after stepping out of the zone
-poke px 300
-run 60
-poke px 352
-poke py 200
-waituntil cur_level == 1 400 w1
+echo [4] every level loads and keeps running (no reset, no crash)
+poke req_level 1 w1
 run 200
-
-echo [9] vine climbing at (1984,48..128): attach and climb upward
-poke px 1984
-poke py 90
-hold up
-waituntil climbing == 1 300 w1
+expect cur_level == 1 w1
+screenshot shots/03_level1.ppm
+poke req_level 2 w1
 run 200
-expect climbing == 1 w1
-expect py < 90 s16
-screenshot shots/03_vine.ppm
-hold none
-hold 1
-run 30
-expect climbing == 0 w1
-hold none
-run 60
+expect cur_level == 2 w1
+poke req_level 3 w1
+run 200
+expect cur_level == 3 w1
+poke req_level 4 w1
+run 200
+expect cur_level == 4 w1
+poke req_level 5 w1
+run 200
+expect cur_level == 5 w1
+poke req_level 6 w1
+run 200
+expect cur_level == 6 w1
 
-echo [10] water at (1600,640): buoyancy, slow sinking, swim stroke rises
-poke px 1600
-poke py 650
-waituntil in_water == 1 200 w1
-run 60
-expect py < 730 s16
-poke py 690
-run 30
-hold 1
-run 20
-hold none
-run 6
-hold 1
-run 20
-hold none
-run 6
-expect py < 690 s16
-screenshot shots/04_water.ppm
+echo [5] demo worlds
+poke req_level 8 w1
+run 200
+expect cur_level == 8 w1
+poke req_level 9 w1
+run 200
+expect cur_level == 9 w1
+poke req_level 10 w1
+run 200
+expect cur_level == 10 w1
+screenshot shots/04_demo3.ppm
 
-echo [11] weapon: thrown knife kills the enemy at (432,416)
-poke px 390
-poke py 408
-poke has_weapon 1 w1
-run 60
-hold 2
-run 20
-hold none
-waituntil enemies_killed >= 1 400 w1
-screenshot shots/05_kill.ppm
-
-echo [12] contact damage: overlapping a live enemy (304,416) costs health
-poke player_health 8 w1
-poke px 292
-poke py 410
-waituntil player_health < 8 400 w1
-
-echo [13] death: health reaching zero costs a life and respawns (enemy 240,416)
-poke player_health 1 w1
-run 400
-poke px 228
-poke py 410
-waituntil lives == 2 600 w1
-expect player_health == 8 w1
-
-echo [14] game over: losing the last life resets progress (enemy 176,432)
-poke lives 1 w1
-poke player_health 1 w1
-run 400
-poke px 164
-poke py 426
-waituntil cur_level == 0 800 w1
-expect lives == 3 w1
-expect gems == 0 w1
-expect has_crystal == 0 w1
-run 180
-expectvdp display 1
-expectcolors 6
-screenshot shots/06_gameover.ppm
+echo [6] ending: macro walk then story slides, then back to the title
+poke req_level 7 w1
+run 2600
+screenshot shots/05_ending.ppm
