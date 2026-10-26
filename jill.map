@@ -1,0 +1,1143 @@
+ASxxxx Linker V03.00 + NoICE + sdld,  page 1.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+.  .ABS.                            00000000    00000000 =           0. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00000000  .__.ABS.                           
+     00000000  l__BSEG                         
+     00000000  l__BSS                          
+     00000000  l__CABS                         
+     00000000  l__DABS                         
+     00000000  l__HEADER                       
+     00000000  l__HEAP                         
+     00000000  l__HOME                         
+     00000000  s__CABS                         
+     00000000  s__CABS0                        
+     00000000  s__CABS1                        
+     00000000  s__CABS2                        
+     00000000  s__CABS3                        
+     00000000  s__CABS4                        
+     00000000  s__DABS                         
+     00000000  s__HEADER                       
+     00000000  s__HEADER0                      
+     00000000  s__HEADER1                      
+     00000000  s__HEADER2                      
+     00000000  s__HEADER3                      
+     00000000  s__HEADER4                      
+     00000001  l__GSFINAL                      
+     00000008  l__HEADER0                      
+     00000009  l__HEADER1                      
+     0000000B  l__CABS1                        
+     0000000D  l__INITIALIZED                  
+     0000000D  l__INITIALIZER                  
+     0000000F  l__GSINIT                       
+     00000010  l__CABS0                        
+     00000010  l__CABS4                        
+     00000017  l__CABS2                        
+     0000001F  l__HEADER2                      
+     0000002B  l__HEADER3                      
+     00000051  l__CABS3                        
+     00000104  l__HEADER4                      
+     00000200  s__CODE                         
+     000018F7  l__DATA                         
+     00002778  l__OVLB                         
+     0000331C  l__CODE                         
+     0000333F  l__BANK24                       
+     0000351C  s__HOME                         
+     0000351C  s__INITIALIZER                  
+     00003529  s__GSINIT                       
+     00003538  s__GSFINAL                      
+     000035BD  l__BANK10                       
+     00003659  l__BANK21                       
+     000036F2  l__BANK22                       
+     000036FB  l__BANK7                        
+     000037A6  l__BANK15                       
+     000037B7  l__BANK20                       
+ASxxxx Linker V03.00 + NoICE + sdld,  page 2.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+.  .ABS.                            00000000    00000000 =           0. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00003880  l__BANK11                       
+     00003905  l__BANK16                       
+     0000390A  l__BANK5                        
+     000039C0  l__BANK17                       
+     000039C4  l__BANK25                       
+     00003A40  l__BANK6                        
+     00003A52  l__OVLA                         
+     00003B20  l__BANK13                       
+     00003C00  l__BANK19                       
+     00003C32  l__BANK14                       
+     00003C33  l__BANK12                       
+     00003CBB  l__BANK26                       
+     00003CE0  l__BANK3                        
+     00003D14  l__BANK23                       
+     00003D4A  l__BANK4                        
+     00003D52  l__BANK18                       
+     00003D60  l__BANK9                        
+     00003D80  l__BANK8                        
+     00003DB5  l__BANK2                        
+     00008000  _SMS_SRAM                          SMSlib_VRAMmemset
+     0000C000  s__DATA                         
+     0000D8F7  s__INITIALIZED                  
+     0000D904  s__BSEG                         
+     0000D904  s__BSS                          
+     0000D904  s__HEAP                         
+     0000FFFC  _SRAM_bank_to_be_mapped_on_slot2   SMSlib_VRAMmemset
+     0000FFFD  _ROM_bank_to_be_mapped_on_slot0    SMSlib_VRAMmemset
+     0000FFFE  _ROM_bank_to_be_mapped_on_slot1    SMSlib_VRAMmemset
+     0000FFFF  _ROM_bank_to_be_mapped_on_slot2    SMSlib_VRAMmemset
+     00028000  s__BANK2                        
+     00038000  s__BANK3                        
+     00048000  s__BANK4                        
+     00058000  s__BANK5                        
+     00068000  s__BANK6                        
+     00078000  s__BANK7                        
+     00088000  s__BANK8                        
+     00098000  s__BANK9                        
+     000A8000  s__BANK10                       
+     000B8000  s__BANK11                       
+     000C8000  s__BANK12                       
+     000D8000  s__BANK13                       
+     000E8000  s__BANK14                       
+     000F8000  s__BANK15                       
+     00108000  s__BANK16                       
+     00118000  s__BANK17                       
+     00128000  s__BANK18                       
+     00138000  s__BANK19                       
+     00148000  s__BANK20                       
+     00158000  s__BANK21                       
+     00168000  s__BANK22                       
+     00178000  s__BANK23                       
+ASxxxx Linker V03.00 + NoICE + sdld,  page 3.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+.  .ABS.                            00000000    00000000 =           0. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00188000  s__BANK24                       
+     00198000  s__BANK25                       
+     001A8000  s__BANK26                       
+     001E4000  s__OVLA                         
+     001F4000  s__OVLB                         
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 4.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_CODE                               00000200    0000331C =       13084. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00002ABB  _main                              main
+     00002B5F  _pal_spr10                         game_data
+     00002B6F  _pal_bg10                          game_data
+     00002B7F  _pal_spr9                          game_data
+     00002B8F  _pal_bg9                           game_data
+     00002B9F  _pal_spr8                          game_data
+     00002BAF  _pal_bg8                           game_data
+     00002BBF  _pal_spr7                          game_data
+     00002BCF  _pal_bg7                           game_data
+     00002BDF  _pal_spr6                          game_data
+     00002BEF  _pal_bg6                           game_data
+     00002BFF  _pal_spr5                          game_data
+     00002C0F  _pal_bg5                           game_data
+     00002C1F  _pal_spr4                          game_data
+     00002C2F  _pal_bg4                           game_data
+     00002C3F  _pal_spr3                          game_data
+     00002C4F  _pal_bg3                           game_data
+     00002C5F  _pal_spr2                          game_data
+     00002C6F  _pal_bg2                           game_data
+     00002C7F  _pal_spr1                          game_data
+     00002C8F  _pal_bg1                           game_data
+     00002C9F  _pal_spr0                          game_data
+     00002CAF  _pal_bg0                           game_data
+     00002CBF  _jill_slot                         game_data
+     00002D0A  _jill_pal                          game_data
+     00002D1A  _anims                             game_data
+     00002EF6  _level_descs                       game_data
+     00003174  _song_table                        game_data
+     00003192  _sfx_table                         game_data
+     000031F6  __divuchar                         
+     000031F8  __divu8                            
+     000031FB  __divu16                           
+     000031FB  __divuint                          
+     0000322A  _SMS_init                          SMSlib
+     0000325C  _VDPReg_init                       SMSlib
+     00003267  _SMS_VDPturnOnFeature              SMSlib
+     0000327C  _SMS_VDPturnOffFeature             SMSlib
+     00003294  _SMS_setBGScrollX                  SMSlib
+     0000329E  _SMS_setBGScrollY                  SMSlib
+     000032A8  _SMS_setBackdropColor              SMSlib
+     000032B2  _SMS_useFirstHalfTilesforSprites   SMSlib
+     000032C8  _SMS_setSpriteMode                 SMSlib
+     00003315  _SMS_setBGPaletteColor             SMSlib
+     00003322  _SMS_setSpritePaletteColor         SMSlib
+     0000332F  _SMS_loadBGPalette                 SMSlib
+     00003343  _SMS_loadSpritePalette             SMSlib
+     00003357  _SMS_setColor                      SMSlib
+     0000335B  _SMS_waitForVBlank                 SMSlib
+     00003368  _SMS_getKeysStatus                 SMSlib
+     0000336D  _SMS_getKeysPressed                SMSlib
+ASxxxx Linker V03.00 + NoICE + sdld,  page 5.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_CODE                               00000200    0000331C =       13084. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00003382  _SMS_getKeysHeld                   SMSlib
+     00003395  _SMS_getKeysReleased               SMSlib
+     000033AE  _SMS_queryPauseRequested           SMSlib
+     000033B2  _SMS_resetPauseRequest             SMSlib
+     000033B8  _SMS_setFrameInterruptHandler      SMSlib
+     000033BC  _SMS_setLineInterruptHandler       SMSlib
+     000033C0  _SMS_setLineCounter                SMSlib
+     000033CA  _SMS_getVCount                     SMSlib
+     000033D4  _SMS_isr                           SMSlib
+     00003413  _SMS_nmi_isr                       SMSlib
+     0000341C  _SMS_initSprites                   SMSlib_sprite
+     00003422  _SMS_addSprite_f                   SMSlib_sprite
+     0000344D  _SMS_copySpritestoSAT              SMSlib_sprite
+     00003481  ___sdcc_call_hl                    
+     00003482  _SMS_VRAMmemcpy                    SMSlib_VRAMmemcpy
+     00003499  _SMS_VRAMmemset_f                  SMSlib_VRAMmemset
+     000034B5  _SMS_VRAMmemsetW                   SMSlib_VRAMmemset
+     000034C8  __modschar                         
+     000034D0  __modsint                          
+     000034D6  __moduchar                         
+     000034DD  __moduint                          
+     000034E2  __divschar                         
+     000034E4  __div8                             
+     000034E8  __div_signexte                     
+     000034EC  __div16                            
+     000034EC  __divsint                          
+     00003512  __get_remainder                    
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 6.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_HEADER0                            00000000    00000008 =           8. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+ASxxxx Linker V03.00 + NoICE + sdld,  page 7.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_HEADER1                            00000000    00000009 =           9. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00000008  _SMS_crt0_RST08                    crt0
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 8.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_HEADER2                            00000000    0000001F =          31. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00000018  _SMS_crt0_RST18                    crt0
+     0000002F  get_bank                           crt0
+     00000033  set_bank                           crt0
+ASxxxx Linker V03.00 + NoICE + sdld,  page 9.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_HEADER3                            00000000    0000002B =          43. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+ASxxxx Linker V03.00 + NoICE + sdld,  page 10.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_HEADER4                            00000000    00000104 =         260. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00000069  _OUTI128                           crt0
+     000000A9  _OUTI96                            crt0
+     000000E9  _OUTI64                            crt0
+     00000129  _OUTI32                            crt0
+     00000169  _outi_block                        crt0
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 11.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_INITIALIZER                        0000351C    0000000D =          13. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+ASxxxx Linker V03.00 + NoICE + sdld,  page 12.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_GSINIT                             00003529    0000000F =          15. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00003529  gsinit                             crt0
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 13.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_GSFINAL                            00003538    00000001 =           1. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+ASxxxx Linker V03.00 + NoICE + sdld,  page 14.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_DATA                               0000C000    000018F7 =        6391. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     0000C001  _ld                                main
+     0000C003  _cur_level                         main
+     0000C004  _mac_on                            main
+     0000C005  _px                                main
+     0000C007  _py                                main
+     0000C009  _vx                                main
+     0000C00B  _vy                                main
+     0000C00D  _cam_x                             main
+     0000C00F  _cam_y                             main
+     0000C011  _on_ground                         main
+     0000C012  _climbing                          main
+     0000C013  _in_water                          main
+     0000C014  _face_right                        main
+     0000C015  _health                            main
+     0000C016  _form                              main
+     0000C017  _keys                              main
+     0000C018  _gems                              main
+     0000C019  _knives                            main
+     0000C01A  _blades                            main
+     0000C01B  _hijump                            main
+     0000C01C  _score_lo                          main
+     0000C01E  _score_hi                          main
+     0000C020  _lives_used                        main
+     0000C021  _game_flags                        main
+     0000C022  _num_obj                           main
+     0000C023  _frame_ctr                         main
+     0000C024  _pressed                           main
+     0000C026  _held                              main
+     0000C028  _ot                                main
+     0000C0A8  _ocol                              main
+     0000C128  _orow                              main
+     0000C1A8  _near_l                            main
+     0000C228  _near_n                            main
+     0000C229  _pcol                              main
+     0000C22A  _prow                              main
+     0000C22B  _ox                                main
+     0000C32B  _oy                                main
+     0000C42B  _ow                                main
+     0000C4AB  _oh                                main
+     0000C52B  _ovx                               main
+     0000C5AB  _ovy                               main
+     0000C62B  _ost                               main
+     0000C6AB  _oct                               main
+     0000C72B  _ofr                               main
+     0000C7AB  _otag                              main
+     0000C8AB  _oxd                               main
+     0000C9AB  _oyd                               main
+     0000CAAB  _oaux                              main
+     0000CBAB  _otgt                              main
+     0000CCAB  _ohp                               main
+ASxxxx Linker V03.00 + NoICE + sdld,  page 15.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_DATA                               0000C000    000018F7 =        6391. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     0000CD2B  _mus_idx                           main
+     0000CD2C  _mus_bank                          main
+     0000CD2D  _mus_wait                          main
+     0000CD32  _t_per                             main
+     0000CD38  _t_att                             main
+     0000CD3B  _n_ctl                             main
+     0000CD3C  _n_att                             main
+     0000CD3D  _n_rate                            main
+     0000CD3E  _n_cnt                             main
+     0000CD3F  _n_on                              main
+     0000CD40  _n_hit                             main
+     0000CD41  _sfx_on                            main
+     0000CD42  _sfx_bank                          main
+     0000CD45  _sfx_per                           main
+     0000CD47  _sfx_att                           main
+     0000CD48  _sfx_noise                         main
+     0000CD49  _sfx_ctl                           main
+     0000CD4A  _w_per                             main
+     0000CD50  _w_att                             main
+     0000CD54  _w_nctl                            main
+     0000CD59  _fc_state                          main
+     0000CE26  _fc_age                            main
+     0000CEF3  _cell_own                          main
+     0000CF18  _upq                               main
+     0000CF24  _upq_n                             main
+     0000CF25  _fctr                              main
+     0000CF26  _hud_dirty                         main
+     0000CF27  _hud_tiles                         main
+     0000D0A7  _sprites_dropped                   main
+     0000D0A8  _se_x                              main
+     0000D0AA  _se_y                              main
+     0000D0AC  _se_t                              main
+     0000D0AD  _se_cols                           main
+     0000D0AE  _se_bands                          main
+     0000D0AF  _se_cx                             main
+     0000D0B0  _se_cl                             main
+     0000D0B1  _se_room                           main
+     0000D0B2  _hud_spr_ok                        main
+     0000D0B3  _cur_sframes                       main
+     0000D0B5  _ds_fid                            main
+     0000D0B6  _hud_bg                            main
+     0000D0B7  _hud_c                             main
+     0000D0BB  _ov_cell                           main
+     0000D13B  _ov_mt                             main
+     0000D17B  _n_ov                              main
+     0000D17C  _nt_tx                             main
+     0000D17D  _nt_ty                             main
+     0000D17E  _colq_n                            main
+     0000D17F  _rowq_n                            main
+     0000D180  _colq                              main
+     0000D186  _rowq                              main
+ASxxxx Linker V03.00 + NoICE + sdld,  page 16.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_DATA                               0000C000    000018F7 =        6391. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     0000D18C  _colbuf                            main
+     0000D234  _rowbuf                            main
+     0000D2F4  _need_full                         main
+     0000D2F5  _hub_valid                         main
+     0000D2F6  _hub_ot                            main
+     0000D33E  _hub_ost                           main
+     0000D386  _hub_oct                           main
+     0000D3CE  _hub_ov_cell                       main
+     0000D44E  _hub_ov_mt                         main
+     0000D48E  _hub_n_ov                          main
+     0000D48F  _cur_entry                         main
+     0000D490  _ret_px                            main
+     0000D492  _ret_py                            main
+     0000D494  _pt_cur                            main
+     0000D6C4  _ptq                               main
+     0000D6F4  _ptq_n                             main
+     0000D6F5  _pt_direct                         main
+     0000D6F6  _cur_map                           main
+     0000D6F8  _cur_mtflags                       main
+     0000D6FA  _span_row                          main
+     0000D70A  _rf_x                              main
+     0000D710  _rf_y                              main
+     0000D716  _rf_n                              main
+     0000D717  _fxr                               main
+     0000D718  _fyr                               main
+     0000D719  _hurt_t                            main
+     0000D71A  _dead_t                            main
+     0000D71B  _form_t                            main
+     0000D71C  _blade_t                           main
+     0000D71D  _fire_cd                           main
+     0000D71E  _anim_t                            main
+     0000D71F  _crouch                            main
+     0000D720  _jump_held                         main
+     0000D721  _flop_t                            main
+     0000D722  _pose_cache                        main
+     0000D723  _elev_n                            main
+     0000D724  _elev_i                            main
+     0000D72E  _pr_t                              main
+     0000D733  _pr_l                              main
+     0000D738  _pr_fr                             main
+     0000D73D  _pr_x                              main
+     0000D747  _pr_y                              main
+     0000D751  _pr_vx                             main
+     0000D756  _pr_vy                             main
+     0000D75B  _ef_t                              main
+     0000D761  _ef_x                              main
+     0000D76D  _ef_y                              main
+     0000D779  _msg_shown                         main
+     0000D77A  _cp_hit                            main
+     0000D77B  _cp_lock                           main
+     0000D77C  _req_entry                         main
+ASxxxx Linker V03.00 + NoICE + sdld,  page 17.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_DATA                               0000C000    000018F7 =        6391. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     0000D77D  _req_music                         main
+     0000D77E  _want_text                         main
+     0000D77F  _level_end_req                     main
+     0000D780  _slides_req                        main
+     0000D781  _macro_req                         main
+     0000D783  _g_sx                              main
+     0000D785  _g_sy                              main
+     0000D787  _draw_l                            main
+     0000D807  _draw_n                            main
+     0000D808  _draw_ne                           main
+     0000D80F  _snap_health                       main
+     0000D810  _snap_keys                         main
+     0000D811  _snap_gems                         main
+     0000D812  _snap_knives                       main
+     0000D813  _snap_hijump                       main
+     0000D814  _snap_slo                          main
+     0000D816  _snap_shi                          main
+     0000D818  _game_over_req                     main
+     0000D819  _end_req                           main
+     0000D81A  _turtle                            main
+     0000D81B  _turtle_latch                      main
+     0000D81C  _held_prev                         main
+     0000D81E  _mac_done                          main
+     0000D81F  _mac_i                             main
+     0000D820  _mac_sub                           main
+     0000D821  _mac_t                             main
+     0000D823  _mac_mask                          main
+     0000D825  _mac_prev                          main
+     0000D82A  _VDPBlank                          SMSlib
+     0000D82B  _SMS_VDPFlags                      SMSlib
+     0000D82C  _PauseRequested                    SMSlib
+     0000D82D  _SMS_Port3EBIOSvalue               SMSlib
+     0000D82E  _SMS_theFrameInterruptHandler      SMSlib
+     0000D830  _KeysStatus                        SMSlib
+     0000D832  _PreviousKeysStatus                SMSlib
+     0000D834  _SMS_theLineInterruptHandler       SMSlib
+     0000D836  _SpriteTableY                      SMSlib_sprite
+     0000D876  _SpriteTableXN                     SMSlib_sprite
+     0000D8F6  _SpriteNextFree                    SMSlib_sprite
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 18.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_INITIALIZED                        0000D8F7    0000000D =          13. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     0000D8F7  _cur_ovl                           main
+     0000D8F9  _audio_enabled                     main
+     0000D8FA  _jill_cur                          main
+     0000D8FB  _jill_want                         main
+     0000D8FC  _pw                                main
+     0000D8FD  _ph                                main
+     0000D8FE  _req_level                         main
+     0000D8FF  _VDPReg                            SMSlib
+     0000D901  _spritesHeight                     SMSlib
+     0000D902  _spritesWidth                      SMSlib
+     0000D903  _spritesTileOffset                 SMSlib
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 19.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_OVLA                               001E4000    00003A52 =       14930. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+ASxxxx Linker V03.00 + NoICE + sdld,  page 20.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_OVLB                               001F4000    00002778 =       10104. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+ASxxxx Linker V03.00 + NoICE + sdld,  page 21.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_CABS0                              00000000    00000010 =          16. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00007FF0  ___SMS__SEGA_signature             main
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 22.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_CABS1                              00000000    0000000B =          11. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00007FD5  ___SMS__SDSC_author                main
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 23.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_CABS2                              00000000    00000017 =          23. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00007FBE  ___SMS__SDSC_name                  main
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 24.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_CABS3                              00000000    00000051 =          81. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00007F6D  ___SMS__SDSC_descr                 main
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 25.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_CABS4                              00000000    00000010 =          16. bytes (ABS,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00007FE0  ___SMS__SDSC_signature             main
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 26.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK2                              00028000    00003DB5 =       15797. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00028000  _jill_gfx                          bank2
+     0002B200  _lvl0_objs                         bank2
+     0002B7D0  _lvl0_strings                      bank2
+     0002B829  _lvl0_stroff                       bank2
+     0002B845  _sfx_01                            bank2
+     0002B85B  _sfx_02                            bank2
+     0002B87E  _sfx_03                            bank2
+     0002B8B4  _sfx_04                            bank2
+     0002B8E6  _sfx_05                            bank2
+     0002B912  _sfx_06                            bank2
+     0002B9B7  _sfx_08                            bank2
+     0002B9D6  _sfx_10                            bank2
+     0002BA00  _sfx_11                            bank2
+     0002BA41  _sfx_12                            bank2
+     0002BAA5  _sfx_15                            bank2
+     0002BAB3  _sfx_16                            bank2
+     0002BAD0  _sfx_18                            bank2
+     0002BAF9  _sfx_19                            bank2
+     0002BB47  _sfx_23                            bank2
+     0002BB62  _sfx_24                            bank2
+     0002BB7D  _sfx_25                            bank2
+     0002BBA1  _sfx_28                            bank2
+     0002BBB6  _sfx_33                            bank2
+     0002BC25  _sfx_35                            bank2
+     0002BC43  _sfx_39                            bank2
+     0002BC90  _sfx_41                            bank2
+     0002BD1D  _sfx_48                            bank2
+ASxxxx Linker V03.00 + NoICE + sdld,  page 27.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK3                              00038000    00003CE0 =       15584. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00038000  _lvl0_mtdef                        bank3
+     000381E0  _lvl0_mtflags                      bank3
+     0003821C  _lvl0_map                          bank3
+     0003A21C  _lvl0_spkey                        bank3
+     0003A22C  _lvl0_spoff                        bank3
+     0003A23E  _lvl0_sptile                       bank3
+     0003A28E  _lvl0_mac                          bank3
+     0003A292  _lvl0_bgtiles                      bank3
+     0003B692  _lvl0_sframes                      bank3
+     0003BB60  _lvl1_sfc1                         bank3
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 28.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK4                              00048000    00003D4A =       15690. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00048000  _lvl0_sfc0                         bank4
+     00049540  _lvl1_bgtiles                      bank4
+     0004A860  _lvl3_objs                         bank4
+     0004B340  _lvl3_strings                      bank4
+     0004B360  _lvl3_stroff                       bank4
+     0004B36C  _song_dan                          bank4
+ASxxxx Linker V03.00 + NoICE + sdld,  page 29.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK5                              00058000    0000390A =       14602. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00058000  _lvl1_mtdef                        bank5
+     00058200  _lvl1_mtflags                      bank5
+     00058240  _lvl1_map                          bank5
+     0005A240  _lvl1_spkey                        bank5
+     0005A248  _lvl1_spoff                        bank5
+     0005A252  _lvl1_sptile                       bank5
+     0005A276  _lvl1_mac                          bank5
+     0005A27A  _lvl1_objs                         bank5
+     0005ADD2  _lvl1_strings                      bank5
+     0005ADF1  _lvl1_stroff                       bank5
+     0005ADF9  _lvl1_sframes                      bank5
+     0005B2C7  _lvl10_objs                        bank5
+     0005B5F7  _lvl10_strings                     bank5
+     0005B606  _lvl10_stroff                      bank5
+     0005B60A  _font1bpp                          bank5
+ASxxxx Linker V03.00 + NoICE + sdld,  page 30.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK6                              00068000    00003A40 =       14912. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00068000  _lvl1_sfc0                         bank6
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 31.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK7                              00078000    000036FB =       14075. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00078000  _lvl2_mtdef                        bank7
+     000782C8  _lvl2_mtflags                      bank7
+     00078321  _lvl2_map                          bank7
+     0007A321  _lvl2_spkey                        bank7
+     0007A323  _lvl2_spoff                        bank7
+     0007A325  _lvl2_sptile                       bank7
+     0007A327  _lvl2_mac                          bank7
+     0007A32B  _lvl2_objs                         bank7
+     0007AB3B  _lvl2_strings                      bank7
+     0007AB5F  _lvl2_stroff                       bank7
+     0007AB67  _lvl2_sframes                      bank7
+     0007B035  _lvl4_objs                         bank7
+     0007B6DD  _lvl4_strings                      bank7
+     0007B6F3  _lvl4_stroff                       bank7
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 32.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK8                              00088000    00003D80 =       15744. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00088000  _lvl2_bgtiles                      bank8
+     0008A0E0  _lvl6_bgtiles                      bank8
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 33.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK9                              00098000    00003D60 =       15712. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00098000  _lvl2_sfc0                         bank9
+     0009B3C0  _lvl7_bgtiles                      bank9
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 34.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK10                             000A8000    000035BD =       13757. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     000A8000  _lvl3_mtdef                        bank10
+     000A8108  _lvl3_mtflags                      bank10
+     000A8129  _lvl3_map                          bank10
+     000AA129  _lvl3_spkey                        bank10
+     000AA131  _lvl3_spoff                        bank10
+     000AA13B  _lvl3_sptile                       bank10
+     000AA16B  _lvl3_mac                          bank10
+     000AA16F  _lvl3_bgtiles                      bank10
+     000AB0EF  _lvl3_sframes                      bank10
+ASxxxx Linker V03.00 + NoICE + sdld,  page 35.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK11                             000B8000    00003880 =       14464. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     000B8000  _lvl3_sfc0                         bank11
+     000B9F40  _lvl9_sfc0                         bank11
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 36.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK12                             000C8000    00003C33 =       15411. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     000C8000  _lvl4_mtdef                        bank12
+     000C80D8  _lvl4_mtflags                      bank12
+     000C80F3  _lvl4_map                          bank12
+     000CA0F3  _lvl4_spkey                        bank12
+     000CA0FF  _lvl4_spoff                        bank12
+     000CA10D  _lvl4_sptile                       bank12
+     000CA135  _lvl4_mac                          bank12
+     000CA139  _lvl4_bgtiles                      bank12
+     000CAD19  _lvl4_sframes                      bank12
+     000CB1E7  _song_it                           bank12
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 37.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK13                             000D8000    00003B20 =       15136. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     000D8000  _lvl4_sfc0                         bank13
+     000DAD40  _lvl5_bgtiles                      bank13
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 38.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK14                             000E8000    00003C32 =       15410. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     000E8000  _lvl5_mtdef                        bank14
+     000E80F0  _lvl5_mtflags                      bank14
+     000E810E  _lvl5_map                          bank14
+     000EA10E  _lvl5_spkey                        bank14
+     000EA116  _lvl5_spoff                        bank14
+     000EA120  _lvl5_sptile                       bank14
+     000EA158  _lvl5_mac                          bank14
+     000EA15C  _lvl5_objs                         bank14
+     000EAC84  _lvl5_strings                      bank14
+     000EACAA  _lvl5_stroff                       bank14
+     000EACB6  _lvl5_sframes                      bank14
+     000EB184  _song_jupiter                      bank14
+ASxxxx Linker V03.00 + NoICE + sdld,  page 39.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK15                             000F8000    000037A6 =       14246. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     000F8000  _lvl5_sfc0                         bank15
+     000FAB40  _lvl6_objs                         bank15
+     000FB578  _lvl6_strings                      bank15
+     000FB596  _lvl6_stroff                       bank15
+     000FB59E  _lvl7_objs                         bank15
+     000FB77E  _lvl7_strings                      bank15
+     000FB798  _lvl7_stroff                       bank15
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 40.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK16                             00108000    00003905 =       14597. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00108000  _lvl6_mtdef                        bank16
+     00108288  _lvl6_mtflags                      bank16
+     001082D9  _lvl6_map                          bank16
+     0010A2D9  _lvl6_spkey                        bank16
+     0010A2DD  _lvl6_spoff                        bank16
+     0010A2E3  _lvl6_sptile                       bank16
+     0010A2F3  _lvl6_mac                          bank16
+     0010A2F7  _lvl6_sfc1                         bank16
+     0010B437  _lvl6_sframes                      bank16
+ASxxxx Linker V03.00 + NoICE + sdld,  page 41.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK17                             00118000    000039C0 =       14784. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00118000  _lvl6_sfc0                         bank17
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 42.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK18                             00128000    00003D52 =       15698. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00128000  _lvl7_mtdef                        bank18
+     001280B8  _lvl7_mtflags                      bank18
+     001280CF  _lvl7_map                          bank18
+     0012A0CF  _lvl7_spkey                        bank18
+     0012A151  _lvl7_spoff                        bank18
+     0012A1D5  _lvl7_sptile                       bank18
+     0012A8ED  _lvl7_mac                          bank18
+     0012AB15  _lvl7_ptslot                       bank18
+     0012AFD7  _lvl7_sframes                      bank18
+     0012B4A5  _song_zeppelin                     bank18
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 43.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK19                             00138000    00003C00 =       15360. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00138000  _lvl7_pt0                          bank19
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 44.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK20                             00148000    000037B7 =       14263. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00148000  _lvl7_pt1                          bank20
+     00149020  _lvl7_sfc0                         bank20
+     0014B0E0  _lvl8_objs                         bank20
+     0014B7A0  _lvl8_strings                      bank20
+     0014B7B1  _lvl8_stroff                       bank20
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 45.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK21                             00158000    00003659 =       13913. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00158000  _lvl8_mtdef                        bank21
+     00158148  _lvl8_mtflags                      bank21
+     00158171  _lvl8_map                          bank21
+     0015A171  _lvl8_spkey                        bank21
+     0015A179  _lvl8_spoff                        bank21
+     0015A183  _lvl8_sptile                       bank21
+     0015A1A7  _lvl8_mac                          bank21
+     0015A1AB  _lvl8_bgtiles                      bank21
+     0015B18B  _lvl8_sframes                      bank21
+ASxxxx Linker V03.00 + NoICE + sdld,  page 46.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK22                             00168000    000036F2 =       14066. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00168000  _lvl8_sfc0                         bank22
+     0016AFC0  _lvl9_objs                         bank22
+     0016B6E0  _lvl9_strings                      bank22
+     0016B6EC  _lvl9_stroff                       bank22
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 47.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK23                             00178000    00003D14 =       15636. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00178000  _lvl9_mtdef                        bank23
+     00178120  _lvl9_mtflags                      bank23
+     00178144  _lvl9_map                          bank23
+     0017A144  _lvl9_spkey                        bank23
+     0017A152  _lvl9_spoff                        bank23
+     0017A162  _lvl9_sptile                       bank23
+     0017A1C2  _lvl9_mac                          bank23
+     0017A1C6  _lvl9_bgtiles                      bank23
+     0017B006  _lvl9_sframes                      bank23
+     0017B4D4  _lvl10_bgtiles                     bank23
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 48.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK24                             00188000    0000333F =       13119. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00188000  _lvl10_mtdef                       bank24
+     001880E0  _lvl10_mtflags                     bank24
+     001880FC  _lvl10_map                         bank24
+     0018A0FC  _lvl10_spkey                       bank24
+     0018A0FE  _lvl10_spoff                       bank24
+     0018A100  _lvl10_sptile                      bank24
+     0018A102  _lvl10_mac                         bank24
+     0018A106  _lvl10_sframes                     bank24
+     0018A5D4  _song_funky                        bank24
+ASxxxx Linker V03.00 + NoICE + sdld,  page 49.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK25                             00198000    000039C4 =       14788. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     00198000  _lvl10_sfc0                        bank25
+     001999C0  _song_ominous                      bank25
+     0019A650  _song_seven                        bank25
+ASxxxx Linker V03.00 + NoICE + sdld,  page 50.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+_BANK26                             001A8000    00003CBB =       15547. bytes (REL,CON)
+
+      Value  Global                              Global Defined In Module
+      -----  --------------------------------   ------------------------
+     001A8000  _song_spiders                      bank26
+     001A906F  _song_stealth                      bank26
+     001AA2E1  _game_texts                        bank26
+     001ABC6B  _game_text_off                     bank26
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 51.
+
+Files Linked                              [ module(s) ]
+
+crt0_sms.rel                              [ crt0 ]
+build/main_ovl.rel                        [ main ]
+build/game_data.rel                       [ game_data ]
+build/bank2.rel                           [ bank2 ]
+build/bank3.rel                           [ bank3 ]
+build/bank4.rel                           [ bank4 ]
+build/bank5.rel                           [ bank5 ]
+build/bank6.rel                           [ bank6 ]
+build/bank7.rel                           [ bank7 ]
+build/bank8.rel                           [ bank8 ]
+build/bank9.rel                           [ bank9 ]
+build/bank10.rel                          [ bank10 ]
+build/bank11.rel                          [ bank11 ]
+build/bank12.rel                          [ bank12 ]
+build/bank13.rel                          [ bank13 ]
+build/bank14.rel                          [ bank14 ]
+build/bank15.rel                          [ bank15 ]
+build/bank16.rel                          [ bank16 ]
+build/bank17.rel                          [ bank17 ]
+build/bank18.rel                          [ bank18 ]
+build/bank19.rel                          [ bank19 ]
+build/bank20.rel                          [ bank20 ]
+build/bank21.rel                          [ bank21 ]
+build/bank22.rel                          [ bank22 ]
+build/bank23.rel                          [ bank23 ]
+build/bank24.rel                          [ bank24 ]
+build/bank25.rel                          [ bank25 ]
+build/bank26.rel                          [ bank26 ]
+
+
+Libraries Linked                          [ object file ]
+
+/usr/bin/../share/sdcc/lib/z80/z80.lib    [ divunsigned.rel ]
+SMSlib/SMSlib.lib                         [ SMSlib.rel ]
+SMSlib/SMSlib.lib                         [ SMSlib_sprite.rel ]
+/usr/bin/../share/sdcc/lib/z80/z80.lib    [ __sdcc_call_hl.rel ]
+SMSlib/SMSlib.lib                         [ SMSlib_VRAMmemcpy.rel ]
+SMSlib/SMSlib.lib                         [ SMSlib_VRAMmemset.rel ]
+/usr/bin/../share/sdcc/lib/z80/z80.lib    [ modsigned.rel ]
+/usr/bin/../share/sdcc/lib/z80/z80.lib    [ modunsigned.rel ]
+/usr/bin/../share/sdcc/lib/z80/z80.lib    [ divsigned.rel ]
+
+ASxxxx Linker V03.00 + NoICE + sdld,  page 52.
+
+User Base Address Definitions
+
+_CODE = 0x0200
+_DATA = 0xc000
+_BANK2=0x28000
+_BANK3=0x38000
+_BANK4=0x48000
+_BANK5=0x58000
+_BANK6=0x68000
+_BANK7=0x78000
+_BANK8=0x88000
+_BANK9=0x98000
+_BANK10=0xA8000
+_BANK11=0xB8000
+_BANK12=0xC8000
+_BANK13=0xD8000
+_BANK14=0xE8000
+_BANK15=0xF8000
+_BANK16=0x108000
+_BANK17=0x118000
+_BANK18=0x128000
+_BANK19=0x138000
+_BANK20=0x148000
+_BANK21=0x158000
+_BANK22=0x168000
+_BANK23=0x178000
+_BANK24=0x188000
+_BANK25=0x198000
+_BANK26=0x1A8000
+_OVLA=0x1E4000
+_OVLB=0x1F4000
+
+

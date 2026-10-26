@@ -95,7 +95,7 @@ static u8 text_page(u8 idx, u16 timeout) {
     u16 t = 0;
     u16 off;
     SMS_displayOff();
-    SMS_initSprites();
+    SMS_initSprites(); hud_spr_ok = 0;
     SMS_copySpritestoSAT();
     BANK(TEXT_BANK);
     off = game_text_off[idx];

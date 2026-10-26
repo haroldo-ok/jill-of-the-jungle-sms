@@ -102,6 +102,7 @@ strip('MEGA', 'f', 20, 24, [(33, i) for i in range(5)])
 strip('EPIC', 'f', 32, 16, [(40, i) for i in range(8)])
 strip('FLAG', 'f', 36, 16, [(5, i) for i in range(4)])
 strip('ELEV', 'c', 16, 16, [(14, 44)])
+strip('POLE', 'c', 16, 16, [(41, 22)])        # ELEVMID shaft piece, drawn under a moving lift
 strip('SWITCH', 'c', 16, 16, [(60, 0), (60, 1)])
 strip('NEST', 'c', 16, 16, [(37, i) for i in range(4)])
 strip('BEES', 'c', 16, 16, [(37, i) for i in range(4, 10)])
@@ -116,7 +117,7 @@ TYPE_STRIPS = {
     1: ['APPLE'], 2: ['KNIFEI'], 14: ['KEY'], 33: ['CRYSTAL'], 11: ['SLUG'], 22: ['FROG'],
     29: ['ANT'], 30: ['PHOENIX'], 35: ['BOULDER'], 38: ['STALAG'], 39: ['SNAKE'], 40: ['ROCK'],
     42: ['MEGA'], 44: ['KNIGHT'], 45: ['NEST', 'BEES'], 47: ['CRAB'], 48: ['GATOR'], 49: ['EPIC'],
-    51: ['SKULL', 'SPARK'], 53: ['PAC'], 59: ['JELLY'], 60: ['EEL'], 61: ['ELEV'], 32: ['SWITCH'],
+    51: ['SKULL', 'SPARK'], 53: ['PAC'], 59: ['JELLY'], 60: ['EEL'], 61: ['ELEV', 'POLE'], 32: ['SWITCH'],
     64: ['EYE'], 65: ['SPARK'], 66: ['FLAG'], 19: ['MIST'],
 }
 TOKEN_STRIP = {0: 'TOK0', 4: 'TOK4', 5: 'TOK5', 7: 'TOK7', 8: 'TOK8', 9: 'TOK9'}
@@ -453,6 +454,8 @@ def main():
         obj_alt: Dict[int, int] = {}
         for k, c in alt_code.items():
             obj_alt[k] = mt_of(c, 0)
+        # lift shaft metatile (ELEVMID, code 138) - lifts build / remove it as they move
+        L.elev_mt = mt_of(138, 0) if any(o.typ == 61 for o in m.objects) else 255
         # Resolve mt ids for BRIDGER 'other state'
         if len(mt_keys) > 255:
             raise ValueError('too many metatiles')
@@ -836,6 +839,7 @@ def main():
     EXTRA_TEXTS[18] = intro_page('The Jill Series', [(32, 580, 302, 731)])
     EXTRA_TEXTS[19] = intro_page('Thank You', [(592, 296, 886, 407)])
     EXTRA_TEXTS[21] = '\n1      PAUSED\n\n7    Resume\n7    Save game\n7    Turtle mode: on\n7    Turtle mode: off\n7    How to play\n\x1a'
+    EXTRA_TEXTS[22] = '1Elevator\n\nPress UP/DOWN to use\nthe elevator.\n\x1a'      # JILL.EXE: _msg_elev
     vcl.texts.update(EXTRA_TEXTS)
     # PC-specific wording -> SMS controls
     for k_, v_ in list(vcl.texts.items()):
@@ -884,7 +888,7 @@ def main():
              '  unsigned char pool_tiles, bg_start, music;\n'
              '  unsigned int n_bg, nobjs;\n'
              '  const unsigned char *bgtiles, *mtflags, *map, *strings;\n'
-             '  const unsigned int *mtdef, *objs, *stroff, *sp_key, *sp_off, *sp_tile;\n  unsigned char nspan, nmac;\n  const unsigned int *mac;\n  const unsigned int *pt_slot; const unsigned char *pt_tiles;\n  unsigned char pt_bank;\n  unsigned int pt_vram;\n'
+             '  const unsigned int *mtdef, *objs, *stroff, *sp_key, *sp_off, *sp_tile;\n  unsigned char nspan, nmac;\n  const unsigned int *mac;\n  const unsigned int *pt_slot; const unsigned char *pt_tiles;\n  unsigned char pt_bank;\n  unsigned int pt_vram;\n  unsigned char elev_mt;\n'
              '  const SFrame *sframes;\n'
              '  const unsigned char *bg_pal, *spr_pal;\n'
              '  unsigned int spawn_x, spawn_y;\n'
@@ -947,7 +951,7 @@ def main():
             f'  {{{db},{bw.where[f"lvl{li}_objs"]},{gb},{L.hud[0]},{L.hud[1]},{L.hud[2]},{L.hud[3]},{L.pool_tiles},{bs},{first_music},{n_bg},{len(L.objs)},'
             f'lvl{li}_bgtiles,lvl{li}_mtflags,lvl{li}_map,lvl{li}_strings,'
             f'lvl{li}_mtdef,lvl{li}_objs,lvl{li}_stroff,lvl{li}_spkey,lvl{li}_spoff,lvl{li}_sptile,{L.n_span},{L.n_mac},lvl{li}_mac,'
-            f'{"lvl%d_ptslot" % li if L.stream else "0"},{"lvl%d_pt0" % li if L.stream else "0"},{L.pt_bank},{bs + n_bg},'
+            f'{"lvl%d_ptslot" % li if L.stream else "0"},{"lvl%d_pt0" % li if L.stream else "0"},{L.pt_bank},{bs + n_bg},{L.elev_mt},'
             f'lvl{li}_sframes,'
             f'pal_bg{li},pal_spr{li},{L.spawn[0]},{L.spawn[1]},"{name}"}},')
         gd.insert(1, f'const unsigned char pal_bg{li}[16]={{' + ','.join(str(v) for v in L.bg_pal) + '};')

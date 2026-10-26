@@ -21,6 +21,27 @@ run 60
 hold none
 expect px > 100 s16
 
+echo [2b] hub lift (object 9): stand on it, hold DOWN, it lowers one cell at a time and carries Jill
+poke msg_shown 16 w1
+poke px 960 w2
+poke py 140 w2
+run 60
+expect oy+18 == 160 s16
+hold down
+run 60
+hold none
+run 10
+expect oy+18 > 176 s16
+expect py > 168 s16
+hold up
+run 120
+hold none
+run 10
+expect oy+18 < 176 s16
+poke px 112 w2
+poke py 190 w2
+run 120
+
 echo [3] pause menu opens, Save game writes SRAM, resume
 pause
 run 60
@@ -56,7 +77,8 @@ poke req_level 6 w1
 run 200
 expect cur_level == 6 w1
 
-echo [5] demo worlds
+echo [5] demo worlds (one-shot hint pages suppressed)
+poke msg_shown 31 w1
 poke req_level 8 w1
 run 200
 expect cur_level == 8 w1

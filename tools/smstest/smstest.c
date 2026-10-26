@@ -276,7 +276,20 @@ static void load_symbols(const char* path) {
     fclose(f);
     printf("symbols: loaded %d from %s\n", nsyms, path);
 }
+static int sym_lookup_1(const char* name, uint32_t* out);
+/* "sym+N" (N decimal) addresses an element/byte offset from a symbol */
 static int sym_lookup(const char* name, uint32_t* out) {
+    const char* plus = strchr(name, '+');
+    if (plus && plus != name) {
+        char base[66]; size_t l = (size_t)(plus - name); if (l > 65) l = 65;
+        memcpy(base, name, l); base[l] = 0;
+        if (!sym_lookup_1(base, out)) return 0;
+        *out += (uint32_t)strtoul(plus + 1, NULL, 0);
+        return 1;
+    }
+    return sym_lookup_1(name, out);
+}
+static int sym_lookup_1(const char* name, uint32_t* out) {
     char alt[66];
     snprintf(alt, sizeof alt, "_%s", name);
     for (int i = 0; i < nsyms; i++)

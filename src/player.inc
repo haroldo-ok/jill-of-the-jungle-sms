@@ -84,7 +84,7 @@ static u8 elev_below(void) {          /* a lift supports the player? returns ind
     for (k = 0; k < elev_n; k++) {
         e = elev_i[k];
         if (ot[e] != T_ELEV) continue;
-        if (py + ph == oy[e] && px + pw > ox[e] + 1 && px < ox[e] + 15) return e + 1;
+        if (py + ph == oy[e] + 16 && px + pw > ox[e] + 2 && px < ox[e] + 14) return e + 1;
     }
     return 0;
 }
@@ -233,8 +233,9 @@ static void proj_update(void) {
             else if (!kn) { fx_spawn(pr_x[i], pr_y[i]); pr_t[i] = 0; continue; }
         }
         if (pr_t[i] == PR_KNIFEB && (frame_ctr & 3)) continue;
-        for (j = 0; j < num_obj; j++) {
-            if (!near_f[j]) continue;
+        for (f = 0; f < near_n; f++) {
+            j = near_l[f];
+            if (ot[j] == T_NONE) continue;
             if (pr_x[i] + 8 > ox[j] && pr_x[i] < ox[j] + ow[j] && pr_y[i] + 8 > oy[j] && pr_y[i] < oy[j] + oh[j]) {
                 if (killable_dmg(j, 1)) {
                     sfx_play(SND_HIT);

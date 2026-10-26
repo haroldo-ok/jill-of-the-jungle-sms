@@ -16,6 +16,7 @@
 #define JILL_RUN_R 8
 #define JILL_RUN_L 0
 
+#include "fastcull.inc"
 #include "textpage.inc"
 #include "flow.inc"
 

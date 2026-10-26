@@ -96,10 +96,36 @@ make playtest     # tests/playtest.txt: title, hub, pause/save, every level, dem
 8. **Tooling**: `tools/smstest` emulator gained SRAM, pause button, `pc`, `bp`, `spwatch`, `rwatch`,
    `vregs`, PSG write counting/logging and a cycle profiler (`profstart` / `profdump`).
 
+9. **Lifts**: reimplemented after the Epic engine's `msg_elev` (the released Xargon source shares
+   Jill's engine): stand on a lift and hold UP/DOWN to raise/lower it one cell at a time; rising
+   leaves ELEVMID shaft tiles below it, lowering removes them; lifts whose counter is not -1 sink
+   back when nobody rides them; the first ride shows the original "Press UP/DOWN" hint; hub lift
+   positions persist (and are saved).
+10. **Performance** (headless emulator, frames of game logic per second, walking / standing):
+
+    | level | before | after |
+    |---|---|---|
+    | map hub | 23 / 30 | 52 / 60 |
+    | 1 | 18 / 19 | 42 / 53 |
+    | 2 | 25 / 31 | 57 / 60 |
+    | 3 | 15 / 18 | 30 / 30 |
+    | 4 | 21 / 27 | 39 / 58 |
+    | 6 | 19 / 21 | 48 / 58 |
+    | 9 | 24 / 27 | 50 / 60 |
+
+    How: an active-object list rebuilt every few frames from coarse cell positions
+    (`src/fastcull.inc`, Z80), one overlay switch per frame instead of one per object, dense jump
+    tables for the object `switch`es, collectibles and idle lifts handled inline, `flag_at`,
+    `draw_spr`, the draw loop and a sprite emitter writing straight into SMSlib's sprite table in
+    Z80, HUD sprites kept in the table, metatile-based row/column streaming, no divisions per
+    frame, PSG writes inlined in the interrupt tick, the frame cache's hit path split off.
+    Also fixed on the way: saving hung the game (the audio interrupt read slot 2 while SRAM was
+    mapped there).
+
 ## Known limitations
 
-* Not tested on real hardware; the game logic runs at ~30 fps and drops lower while the camera
-  scrolls (tile streaming is the main cost).
+* Not tested on real hardware. Busy scenes (e.g. level 3 with several lifts and a snake on
+  screen) still run at 30 fps.
 * Object types 9 and 52 (Volume II demo only) have no graphics in the supplied data and are ignored.
 * Some enemy behaviours (eye, knight, gator) are approximations; the spinning blade token lasts a
   fixed time (the original behaviour is unverified).

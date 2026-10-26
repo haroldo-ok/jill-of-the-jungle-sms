@@ -4,7 +4,7 @@
 #include "SMSlib.h"
 
 #define JILL_N_LEVELS 11
-#define SPR_COUNT 204
+#define SPR_COUNT 205
 #define JILL_N_FRAMES 75
 #define T_SPR0 20
 #define T_HUD 8
@@ -88,21 +88,23 @@
 #define SPR_FLAG_N 4
 #define SPR_ELEV 159
 #define SPR_ELEV_N 1
-#define SPR_SWITCH 160
+#define SPR_POLE 160
+#define SPR_POLE_N 1
+#define SPR_SWITCH 161
 #define SPR_SWITCH_N 2
-#define SPR_NEST 162
+#define SPR_NEST 163
 #define SPR_NEST_N 4
-#define SPR_BEES 166
+#define SPR_BEES 167
 #define SPR_BEES_N 6
-#define SPR_MIST 172
+#define SPR_MIST 173
 #define SPR_MIST_N 4
-#define SPR_BUBBLE 176
+#define SPR_BUBBLE 177
 #define SPR_BUBBLE_N 3
-#define SPR_STAR 179
+#define SPR_STAR 180
 #define SPR_STAR_N 15
-#define SPR_FROGP 194
+#define SPR_FROGP 195
 #define SPR_FROGP_N 4
-#define SPR_FISHP 198
+#define SPR_FISHP 199
 #define SPR_FISHP_N 6
 
 typedef struct { const unsigned char *p; unsigned char bank, xo, yo, cb; } SFrame;
@@ -117,14 +119,15 @@ typedef struct {
   const unsigned int *pt_slot; const unsigned char *pt_tiles;
   unsigned char pt_bank;
   unsigned int pt_vram;
+  unsigned char elev_mt;
   const SFrame *sframes;
   const unsigned char *bg_pal, *spr_pal;
   unsigned int spawn_x, spawn_y;
   const char *name;
 } LevelDesc;
 extern const LevelDesc level_descs[JILL_N_LEVELS];
-extern const unsigned char font1bpp[]; /* in bank 6 */
-#define FONT_BANK 6
+extern const unsigned char font1bpp[]; /* in bank 5 */
+#define FONT_BANK 5
 #define JILL_BANK 2
 extern const unsigned char jill_gfx[];
 extern const unsigned char jill_slot[JILL_N_FRAMES];

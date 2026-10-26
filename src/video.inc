@@ -53,16 +53,18 @@ static void fc_reset(void) {
 }
 
 /* ensure frame is present; returns tile index of its first tile, or 0xFFFF if not yet uploaded */
-static u16 fc_get(u8 fid) {
+static u16 fc_miss(u8 fid);
+static u16 fc_get(u8 fid) {                 /* hit path kept small (no big stack frame) */
+    u8 st = fc_state[fid];
+    if (st == 0xFF) return fc_miss(fid);
+    fc_age[fid] = fctr;
+    if (st & 0x80) return 0xFFFF;
+    return T_SPR0 + ((u16)st << 2);
+}
+static u16 fc_miss(u8 fid) {
     const SFrame *sf;
-    u8 st, n, best, bestcost, start, k, cost, f;
+    u8 n, best, bestcost, start, k, cost, f;
     u8 ncells;
-    st = fc_state[fid];
-    if (st != 0xFF) {
-        fc_age[fid] = fctr;
-        if (st & 0x80) return 0xFFFF;
-        return T_SPR0 + ((u16)st << 2);
-    }
     sf = &ld->sframes[fid];
     if (!sf->p) return 0xFFFF;
     n = (u8)((sf->cb >> 4) * (sf->cb & 15) * 2);          /* tiles */
@@ -120,23 +122,190 @@ static void fc_upload(u8 budget) {
     BANK(sb);
 }
 
+/* ---- fast sprite emitter: writes straight into SMSlib's sprite table ------------------
+ * se_cols x se_bands 8x16 sprites from tile se_t (step 2), top-left (se_x, se_y).
+ * Same clipping as SMS_addSpriteClipping with the default window: x 0..255, y -15..191. */
+int se_x, se_y;
+u8 se_t, se_cols, se_bands;
+extern unsigned char SpriteTableY[], SpriteTableXN[], SpriteNextFree;
+
+u8 se_cx, se_cl, se_room;
+u8 hud_spr_ok;                      /* HUD sprites (table entries 0..5) already written */
+static void spr_emit(void) __naked {
+    __asm
+        ld   a, (_se_cols)
+        or   a
+        ret  z
+        push ix
+        push iy
+        ld   (_se_cl), a         ; columns left
+        ld   a, (_SpriteNextFree)
+        ld   c, a
+        ld   a, #64
+        sub  c
+        jr   nc, 0$
+        xor  a
+0$:     ld   (_se_room), a       ; free table entries
+        ld   b, #0
+        ld   iy, #_SpriteTableY
+        add  iy, bc
+        ld   ix, #_SpriteTableXN
+        add  ix, bc
+        add  ix, bc
+        ld   a, (_se_t)
+        ld   c, a                ; C = tile
+        ld   hl, (_se_x)
+1$:     push hl                  ; column: x in HL
+        ld   a, h
+        or   a
+        jr   nz, 7$              ; x < 0 or x > 255: skip the column (tiles still advance)
+        ld   a, l
+        ld   (_se_cx), a
+        ld   a, (_se_bands)
+        ld   b, a
+        ld   de, (_se_y)
+2$:     ld   hl, #15             ; band: y in DE
+        add  hl, de
+        ld   a, h
+        or   a
+        jr   nz, 5$              ; y < -15 or y > 240
+        ld   a, l
+        cp   #207
+        jr   nc, 5$              ; y > 191
+        ld   a, (_se_room)
+        or   a
+        jr   z, 6$
+        dec  a
+        ld   (_se_room), a
+        ld   a, e
+        dec  a
+        ld   0 (iy), a           ; Y = y - 1
+        inc  iy
+        ld   a, (_se_cx)
+        ld   0 (ix), a
+        ld   1 (ix), c
+        inc  ix
+        inc  ix
+5$:     inc  c
+        inc  c
+        ld   hl, #16
+        add  hl, de
+        ex   de, hl
+        djnz 2$
+        jr   8$
+6$:     ld   hl, #_sprites_dropped
+        inc  (hl)
+        jr   5$
+7$:     ld   a, (_se_bands)
+        add  a, a
+        add  a, c
+        ld   c, a
+8$:     pop  hl
+        ld   de, #8
+        add  hl, de
+        ld   a, (_se_cl)
+        dec  a
+        ld   (_se_cl), a
+        jr   nz, 1$
+        push iy                  ; SpriteNextFree = entries used
+        pop  hl
+        ld   de, #_SpriteTableY
+        or   a
+        sbc  hl, de
+        ld   a, l
+        ld   (_SpriteNextFree), a
+        pop  iy
+        pop  ix
+        ret
+    __endasm;
+}
+
+
 /* draw a cached frame with its top-left at screen position (x,y) */
-static void draw_spr(u8 fid, int x, int y) {
-    const SFrame *sf = &ld->sframes[fid];
-    u16 t = fc_get(fid);
-    u8 cols, bands, c, b;
-    if (t == 0xFFFF) return;
-    x += (s8)sf->xo;
-    y += (s8)sf->yo;
-    cols = sf->cb >> 4;
-    bands = sf->cb & 15;
-    if (x < -32 || x > 255 || y < -32 || y > 191) return;
-    for (c = 0; c < cols; c++) {
-        for (b = 0; b < bands; b++) {
-            if (SMS_addSpriteClipping(x + (c << 3), y + (b << 4), (u8)t) < 0) sprites_dropped++;
-            t += 2;
-        }
-    }
+const SFrame *cur_sframes;          /* = ld->sframes */
+u8 ds_fid;
+/* draw a cached frame with its top-left at screen position (x,y).
+   Z80 (A = fid, DE = x, y on the stack, callee pops it) of:
+     x += sf->xo; y += sf->yo; if (x < -32 || x > 255 || y < -32 || y > 191) return;
+     t = fc_get(fid); if (t == 0xFFFF) return; emit sf->cb sprites from tile t */
+static void draw_spr(u8 fid, int x, int y) __naked {
+    (void)fid; (void)x; (void)y;
+    __asm
+        ld   (_ds_fid), a
+        ld   (_se_x), de
+        pop  hl                  ; return address
+        pop  bc                  ; y
+        push hl
+        ld   (_se_y), bc
+        ld   l, a                ; HL = cur_sframes + fid * 6
+        ld   h, #0
+        ld   e, l
+        ld   d, h
+        add  hl, hl
+        add  hl, de
+        add  hl, hl
+        ld   de, (_cur_sframes)
+        add  hl, de
+        push hl                  ; sf
+        inc  hl
+        inc  hl
+        inc  hl
+        ld   a, (hl)             ; xo
+        inc  hl
+        ld   c, (hl)             ; yo
+        ld   e, a
+        rla
+        sbc  a, a
+        ld   d, a
+        ld   hl, (_se_x)
+        add  hl, de
+        ld   (_se_x), hl
+        ld   de, #32
+        add  hl, de
+        ld   de, #288
+        or   a
+        sbc  hl, de              ; -32 <= x <= 255 ?
+        jr   nc, 9$
+        ld   a, c
+        ld   e, a
+        rla
+        sbc  a, a
+        ld   d, a
+        ld   hl, (_se_y)
+        add  hl, de
+        ld   (_se_y), hl
+        ld   de, #32
+        add  hl, de
+        ld   de, #224
+        or   a
+        sbc  hl, de              ; -32 <= y <= 191 ?
+        jr   nc, 9$
+        ld   a, (_ds_fid)
+        call _fc_get             ; DE = first tile or 0xFFFF
+        ld   a, d
+        and  e
+        inc  a
+        jr   z, 9$
+        ld   a, e
+        ld   (_se_t), a
+        pop  hl
+        ld   de, #5
+        add  hl, de
+        ld   a, (hl)             ; cb: cols << 4 | bands
+        ld   c, a
+        and  #0x0F
+        ld   (_se_bands), a
+        ld   a, c
+        rrca
+        rrca
+        rrca
+        rrca
+        and  #0x0F
+        ld   (_se_cols), a
+        jp   _spr_emit
+9$:     pop  hl
+        ret
+    __endasm;
 }
 
 /* ---- Jill: 8 tiles streamed from ROM ----------------------------------- */
@@ -155,10 +324,8 @@ static void draw_jill(int x, int y) {
     /* x,y = top-left of the 16x32 picture */
     if (x < -16 || x > 255 || y < -32 || y > 191) return;
     if (jill_cur == 0xFF) return;
-    SMS_addSpriteClipping(x,     y,      0);
-    SMS_addSpriteClipping(x,     y + 16, 2);
-    SMS_addSpriteClipping(x + 8, y,      4);
-    SMS_addSpriteClipping(x + 8, y + 16, 6);
+    se_x = x; se_y = y; se_t = 0; se_cols = 2; se_bands = 2;   /* tiles 0,2 | 4,6 (column-major) */
+    spr_emit();
 }
 
 /* ---- sprite HUD: six 8x16 sprites, text rendered into tiles ------------- */
@@ -228,6 +395,6 @@ static void hud_render(void) {
     hud_dirty = 0;
 }
 static void hud_draw(void) {
-    u8 i;
-    for (i = 0; i < 6; i++) SMS_addSprite(8 + (i << 3), 0, T_HUD + (i << 1));
+    se_x = 8; se_y = 0; se_t = T_HUD; se_cols = 6; se_bands = 1;
+    spr_emit();
 }

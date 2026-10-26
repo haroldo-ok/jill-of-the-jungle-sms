@@ -18,11 +18,11 @@ from collections import defaultdict
 
 FILE_AREA = {'audio': 'R', 'video': 'R', 'level': 'R', 'common': 'R',
              'player': 'A', 'flow': 'A', 'textpage': 'A', 'objdraw': 'A', 'main': 'A',
-             'objects': 'B'}
+             'objects': 'B', 'fastcull': 'R'}
 # helpers shared by both overlays live in the resident area
-RESIDENT_SEEDS = {'main', 'obj_update_t', 'fx_spawn', 'score_add', 'row_flags', 'set_form',
+RESIDENT_SEEDS = {'main', 'obj_update_all_t', 'fx_spawn', 'score_add', 'row_flags', 'set_form',
                   'player_heal', 'player_hurt', 'touch', 'is_near', 'kill_obj', 'killable_dmg'}
-ALLOWED = {('main', 'run_session'), ('obj_update_t', 'obj_update')}
+ALLOWED = {('main', 'run_session'), ('obj_update_all_t', 'obj_update_near')}
 AREA_DIRECTIVE = {'R': '\t.area _CODE', 'A': '\t.area _OVLA', 'B': '\t.area _OVLB'}
 
 
