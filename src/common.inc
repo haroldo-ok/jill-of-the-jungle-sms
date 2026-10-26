@@ -139,7 +139,9 @@ u16 pressed, held;
 
 /* runtime objects ---------------------------------------------------------- */
 u8  ot[MAXO];
-u8  near_f[MAXO];            /* per-frame: object is inside the update/draw window */
+u8  ocol[MAXO], orow[MAXO];  /* coarse cell position (refreshed after each update) for culling */
+u8  near_l[MAXO], near_n;
+u8  pcol, prow;              /* Jill's coarse cell, for quick rejects */    /* objects inside the update/draw window (rebuilt every 4th frame) */
 int ox[MAXO], oy[MAXO];
 u8  ow[MAXO], oh[MAXO];
 s8  ovx[MAXO], ovy[MAXO];

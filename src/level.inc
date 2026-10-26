@@ -3,7 +3,7 @@
  * ---------------------------------------------------------------------- */
 
 #define BLANK_TILE 447
-#define MAX_OV 40
+#define MAX_OV 64
 
 u16 ov_cell[MAX_OV];
 u8 ov_mt[MAX_OV];
@@ -62,15 +62,87 @@ static u16 patch_word(u16 w) {
 
 static u8 mt_at(u8 mx, u8 my) {
     u16 idx = ((u16)my << 7) | mx;
-    u8 i;
-    for (i = 0; i < n_ov; i++) if (ov_cell[i] == idx) return ov_mt[i];
+    if (n_ov) {
+        const u16 *c = ov_cell;
+        u8 i = n_ov;
+        do { if (*c == idx) return ov_mt[(u8)(c - ov_cell)]; c++; } while (--i);
+    }
     return ld->map[idx];
 }
 
-static u8 flag_at(int x, int y) {
-    if (x < 0 || x >= 2048 || y < 0) return MF_SOLID;
-    if (y >= 1024) return 0;
-    return ld->mtflags[mt_at((u8)((u16)x >> 4), (u8)((u16)y >> 4))];
+const u8 *cur_map, *cur_mtflags;          /* = ld->map / ld->mtflags (core bank) */
+
+/* collision flags at world pixel (x, y): solid outside the map sides/top, empty below it.
+   Z80 version of: ld->mtflags[mt_at(x >> 4, y >> 4)]  (x in HL, y in DE, result in A) */
+static u8 flag_at(int x, int y) __naked {
+    (void)x; (void)y;
+    __asm
+        bit  7, h
+        jr   nz, 8$              ; x < 0
+        ld   a, h
+        cp   #8
+        jr   nc, 8$              ; x >= 2048
+        bit  7, d
+        jr   nz, 8$              ; y < 0
+        ld   a, d
+        cp   #4
+        jr   nc, 9$              ; y >= 1024
+        ld   a, l                ; C = x >> 4
+        rrca
+        rrca
+        rrca
+        rrca
+        and  #0x0F
+        ld   c, a
+        ld   a, h
+        add  a, a
+        add  a, a
+        add  a, a
+        add  a, a
+        or   c
+        ld   c, a
+        ld   a, e                ; B = y >> 4
+        rrca
+        rrca
+        rrca
+        rrca
+        and  #0x0F
+        ld   b, a
+        ld   a, d
+        add  a, a
+        add  a, a
+        add  a, a
+        add  a, a
+        or   b
+        ld   b, a
+        ld   a, (_n_ov)
+        or   a
+        jr   z, 1$
+        ld   a, c
+        ld   l, b
+        call _mt_at
+        jr   2$
+1$:     ld   a, b                ; HL = my << 7 | mx
+        srl  a
+        ld   h, a
+        ld   a, #0
+        rra
+        or   c
+        ld   l, a
+        ld   de, (_cur_map)
+        add  hl, de
+        ld   a, (hl)
+2$:     ld   l, a
+        ld   h, #0
+        ld   de, (_cur_mtflags)
+        add  hl, de
+        ld   a, (hl)
+        ret
+8$:     ld   a, #1               ; MF_SOLID
+        ret
+9$:     xor  a
+        ret
+    __endasm;
 }
 
 static u16 tile_at(u16 wc, u16 wr) {
@@ -96,21 +168,66 @@ static u16 tile_at(u16 wc, u16 wr) {
     return ld->mtdef[((u16)mt << 2) + ((wr & 1) << 1) + (wc & 1)];
 }
 
-static void build_col(u8 k, u16 wc) {
-    u8 r;
-    u16 wr;
-    for (r = 0; r < 28; r++) {
-        wr = (u16)nt_ty + r;
-        colbuf[k][(u8)(wr % 28)] = tile_at(wc, wr);
+/* rows of 8x8 tiles that contain baked text spans (those take the slow per-tile path) */
+u8 span_row[16];
+static void span_rows_init(void) {
+    u8 i;
+    for (i = 0; i < 16; i++) span_row[i] = 0;
+    for (i = 0; i < ld->nspan; i++) {
+        u8 r = (u8)(ld->sp_key[i] >> 8);
+        if (r < 128) span_row[r >> 3] |= (u8)(1 << (r & 7));
     }
 }
-static void build_row(u8 k, u16 wr) {
-    u8 c;
-    u16 wc;
-    for (c = 0; c < 32; c++) {
-        wc = (u16)nt_tx + 1 + c;
-        rowbuf[k][(u8)(wc & 31)] = tile_at(wc, wr);
+#define SPAN_ROW(wr) (span_row[(u8)(wr) >> 3] & (u8)(1 << ((u8)(wr) & 7)))
+
+/* 32 tiles of world row wr from world column wc, into the ring buffer buf[col & 31] */
+static void fill_row(u16 *buf, u16 wr, u16 wc) {
+    u8 c, idx = (u8)(wc & 31), mt = 0, my, sub;
+    const u16 *def = ld->mtdef;
+    const u8 *row;
+    if (wr >= 128 || SPAN_ROW(wr)) {
+        for (c = 0; c < 32; c++, wc++) { buf[idx] = tile_at(wc, wr); idx = (idx + 1) & 31; }
+        return;
     }
+    my = (u8)(wr >> 1);
+    sub = (u8)((wr & 1) << 1);
+    row = ld->map + ((u16)my << 7);
+    for (c = 0; c < 32; c++, wc++) {
+        u16 t = BLANK_TILE;
+        if (wc < 256) {
+            if (!c || !(wc & 1)) mt = n_ov ? mt_at((u8)(wc >> 1), my) : row[(u8)(wc >> 1)];
+            t = def[((u16)mt << 2) + sub + (u8)(wc & 1)];
+        }
+        buf[idx] = t;
+        idx = (idx + 1) & 31;
+    }
+}
+/* 28 tiles of world column wc from world row wr, into the ring buffer buf[row % 28] */
+static void fill_col(u16 *buf, u16 wc, u16 wr) {
+    u8 r, idx, mt = 0, mx, sub = (u8)(wc & 1);
+    const u16 *def = ld->mtdef;
+    const u8 *map = ld->map;
+    idx = (u8)(wr % 28);
+    mx = (u8)(wc >> 1);
+    for (r = 0; r < 28; r++, wr++) {
+        u16 t = BLANK_TILE;
+        if (wc < 256 && wr < 128) {
+            if (SPAN_ROW(wr)) t = tile_at(wc, wr);
+            else {
+                if (!r || !(wr & 1)) mt = n_ov ? mt_at(mx, (u8)(wr >> 1)) : map[((wr >> 1) << 7) + mx];
+                t = def[((u16)mt << 2) + ((u8)(wr & 1) << 1) + sub];
+            }
+        }
+        buf[idx] = t;
+        if (++idx == 28) idx = 0;
+    }
+}
+
+static void build_col(u8 k, u16 wc) {
+    fill_col(colbuf[k], wc, nt_ty);
+}
+static void build_row(u8 k, u16 wr) {
+    fill_row(rowbuf[k], wr, (u16)nt_tx + 1);
 }
 
 static void stream_build(void) {
@@ -136,13 +253,14 @@ static void draw_all(void) {
     u16 wr, wc, q;
     for (q = 0; q < PT_MAXS; q++) pt_cur[q] = 0;
     ptq_n = 0; pt_direct = 1;
+    span_rows_init();
+    wc = (u16)nt_tx + 1;
+    c = (u8)(nt_ty % 28);
     for (r = 0; r < 28; r++) {
         wr = (u16)nt_ty + r;
-        for (c = 0; c < 32; c++) {
-            wc = (u16)nt_tx + 1 + c;
-            rowbuf[0][(u8)(wc & 31)] = tile_at(wc, wr);
-        }
-        SMS_VRAMmemcpy(0x3800 + ((u16)(wr % 28) << 6), rowbuf[0], 64);
+        fill_row(rowbuf[0], wr, wc);
+        SMS_VRAMmemcpy(0x3800 + ((u16)c << 6), rowbuf[0], 64);
+        if (++c == 28) c = 0;
     }
     colq_n = rowq_n = 0;
     need_full = 0;
@@ -230,5 +348,8 @@ static void camera_snap(void) {
 /* ---- scroll registers ------------------------------------------------------- */
 static void apply_scroll(void) {
     SMS_setBGScrollX((u8)(0 - cam_x));
-    SMS_setBGScrollY((unsigned char)(cam_y % 224));
+    {   u16 v = cam_y;                   /* cam_y % 224 without a division */
+        while (v >= 224) v -= 224;
+        SMS_setBGScrollY((u8)v);
+    }
 }

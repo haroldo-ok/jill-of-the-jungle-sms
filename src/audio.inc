@@ -27,12 +27,10 @@ static void psg_att(u8 ch, u8 att) {
     w_att[ch] = att;
     PSGPort = (u8)(0x90 | (ch << 5) | att);
 }
-static void psg_per(u8 ch, u16 per) {
-    if (w_per[ch] == per) return;
-    w_per[ch] = per;
-    PSGPort = (u8)(0x80 | (ch << 5) | (per & 15));
-    PSGPort = (u8)(per >> 4);
-}
+/* constant-channel versions for the interrupt-time tick (no call, constant addresses) */
+#define PSG_ATT(ch, att) do { u8 _a = (att); if (w_att[ch] != _a) { w_att[ch] = _a; PSGPort = (u8)(0x90 | ((ch) << 5) | _a); } } while (0)
+#define PSG_PER(ch, per) do { u16 _p = (per); if (w_per[ch] != _p) { w_per[ch] = _p; \
+        PSGPort = (u8)(0x80 | ((ch) << 5) | ((u8)_p & 15)); PSGPort = (u8)(_p >> 4); } } while (0)
 static void psg_noise(u8 ctl) {
     PSGPort = (u8)(0xE0 | ctl);
     w_nctl = ctl;
@@ -126,25 +124,25 @@ static void audio_tick(void) {
     if (!audio_enabled) return;
     if (mus_ptr) music_step();
     if (sfx_on) sfx_step();
-    psg_per(0, t_per[0]); psg_att(0, t_att[0]);
-    psg_per(1, t_per[1]); psg_att(1, t_att[1]);
+    PSG_PER(0, t_per[0]); PSG_ATT(0, t_att[0]);
+    PSG_PER(1, t_per[1]); PSG_ATT(1, t_att[1]);
     if (sfx_on) {
         if (sfx_noise) {
-            psg_att(2, 15);
+            PSG_ATT(2, 15);
             if (w_nctl != sfx_ctl || w_att[3] == 15) psg_noise(sfx_ctl);
-            psg_att(3, sfx_att);
+            PSG_ATT(3, sfx_att);
         } else {
-            psg_att(3, 15);
-            psg_per(2, sfx_per); psg_att(2, sfx_att);
+            PSG_ATT(3, 15);
+            PSG_PER(2, sfx_per); PSG_ATT(2, sfx_att);
         }
     } else {
-        psg_per(2, t_per[2]); psg_att(2, t_att[2]);
+        PSG_PER(2, t_per[2]); PSG_ATT(2, t_att[2]);
         if (n_on) {
             if (n_hit) { psg_noise(n_ctl); n_hit = 0; }
             a = n_att;
-            psg_att(3, a);
+            PSG_ATT(3, a);
             if (++n_cnt >= n_rate) { n_cnt = 0; if (++n_att >= 15) { n_on = 0; } }
-        } else psg_att(3, 15);
+        } else PSG_ATT(3, 15);
     }
     BANK(sb);
 }

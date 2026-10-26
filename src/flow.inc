@@ -39,9 +39,10 @@ static void level_gfx_setup(void) {
 static void level_load(u8 idx, u8 entry, u8 use_ret) {
     u8 i, mus;
     SMS_displayOff();
-    SMS_initSprites();
+    SMS_initSprites(); hud_spr_ok = 0;
     SMS_copySpritestoSAT();
     ld = &level_descs[idx];
+    cur_map = ld->map; cur_mtflags = ld->mtflags; cur_sframes = ld->sframes;
     cur_level = idx;
     cur_entry = entry;
     pal_bg = ld->bg_pal;
@@ -76,8 +77,11 @@ static void level_load(u8 idx, u8 entry, u8 use_ret) {
     cp_lock = 1; req_level = 0xFF; level_end_req = 0; macro_req = 0;
     mac_on = mac_done = 0; slides_req = 0;
     if (ld->nmac) macro_req = 1;           /* scripted ending starts with the level */
-    frame_ctr = 3;                          /* culling pass runs on the first frame */
+    frame_ctr = 0xFF;                       /* the culling sequence starts on the first frame */
     camera_snap();
+    near_n = 0;                             /* active / draw lists valid from the first frame */
+    cull_build((u8)((cam_x >> 4) - 6), (u8)((cam_y >> 4) - 6));
+    draw_filter((u8)((cam_x >> 4) - 5), (u8)((cam_y >> 4) - 4));
     nt_tx = (u8)(cam_x >> 3); nt_ty = (u8)(cam_y >> 3);
     draw_all();
     music_play(mus);
@@ -200,7 +204,6 @@ static void draw_misc(void) {
 
 /* one game frame (logic + sprite list); returns nothing, present() pushes it */
 static void game_logic(void) {
-    u8 i;
     fctr++;
     frame_ctr++;
     if (SMS_queryPauseRequested()) { SMS_resetPauseRequest(); want_text = 21; }
@@ -230,26 +233,22 @@ static void game_logic(void) {
     if (!dead_t) anim_t = anim_t;
     proj_update();
     cp_hit = 0;
-    if (!(frame_ctr & 3)) {   /* culling pass (every 4th frame; windows have a wide margin) */
-        int kx = 96 - (int)cam_x, ky = 96 - (int)cam_y;
-        u8 t;
-        for (i = 0; i < num_obj; i++) {
-            t = ot[i];
-            near_f[i] = t != T_NONE && (t == T_ELEV || ((u16)(ox[i] + kx) < 448 && (u16)(oy[i] + ky) < 384));
-        }
+    switch (frame_ctr & 7) {  /* culling on coarse cell positions, spread over 8 frames (wide margins) */
+    case 0: cells_refresh(); break;       /* only active objects move */
+    case 1: cull_build((u8)((cam_x >> 4) - 6), (u8)((cam_y >> 4) - 6)); break;
+    case 2: case 6: cells_refresh(); draw_filter((u8)((cam_x >> 4) - 5), (u8)((cam_y >> 4) - 4)); break;
     }
-    for (i = 0; i < num_obj; i++)
-        if (near_f[i]) obj_update_t(i);
+    obj_update_all_t();
     if (!cp_hit) cp_lock = 0;
     camera_follow();
     if (hud_dirty == 1) { hud_render(); hud_dirty = 2; }
 
-    SMS_initSprites();
-    hud_draw();
+    if (hud_spr_ok) SpriteNextFree = 6;    /* the HUD entries 0..5 are still in the table */
+    else { SMS_initSprites(); hud_draw(); hud_spr_ok = 1; }
+    draw_objs(0, draw_ne);                     /* lift controls show in front of Jill's feet */
     draw_player();
     draw_blades();
-    for (i = 0; i < num_obj; i++)
-        if (near_f[i]) draw_obj(i);
+    draw_objs(draw_ne, draw_n - draw_ne);
     draw_misc();
 }
 
@@ -271,13 +270,13 @@ static void restart_level(void) {
 static u8 save_valid(void) {
     u8 ok = 0;
     u16 i, sum = 0, got;
-    SMS_enableSRAM();
-    if (SMS_SRAM[0] == 'J' && SMS_SRAM[1] == 'L' && SMS_SRAM[2] == 1) {
+    __asm__("di"); SMS_enableSRAM();      /* the audio IRQ reads ROM through slot 2 */
+    if (SMS_SRAM[0] == 'J' && SMS_SRAM[1] == 'L' && SMS_SRAM[2] == 2) {
         for (i = 0; i < SAVE_SIZE - 2; i++) sum += SMS_SRAM[i];
         got = (u16)(SMS_SRAM[SAVE_SIZE - 2] | ((u16)SMS_SRAM[SAVE_SIZE - 1] << 8));
         ok = (got == sum);
     }
-    SMS_disableSRAM();
+    SMS_disableSRAM(); __asm__("ei");
     return ok;
 }
 
@@ -285,9 +284,9 @@ static void save_game(void) {
     u16 i, o = 3, sum = 0;
     u8 *d;
     if (cur_level == 0) { hub_save(); ret_px = px; ret_py = py; }
-    SMS_enableSRAM();
+    __asm__("di"); SMS_enableSRAM();      /* the audio IRQ reads ROM through slot 2 */
     d = SMS_SRAM;
-    d[0] = 'J'; d[1] = 'L'; d[2] = 1;
+    d[0] = 'J'; d[1] = 'L'; d[2] = 2;
     d[o++] = (u8)health; d[o++] = keys; d[o++] = gems; d[o++] = knives; d[o++] = hijump; d[o++] = msg_shown;
     d[o++] = (u8)score_lo; d[o++] = (u8)(score_lo >> 8); d[o++] = (u8)score_hi; d[o++] = (u8)(score_hi >> 8);
     d[o++] = (u8)ret_px; d[o++] = (u8)((u16)ret_px >> 8); d[o++] = (u8)ret_py; d[o++] = (u8)((u16)ret_py >> 8);
@@ -297,7 +296,7 @@ static void save_game(void) {
     for (i = o; i < SAVE_SIZE - 2; i++) d[i] = 0;
     for (i = 0; i < SAVE_SIZE - 2; i++) sum += d[i];
     d[SAVE_SIZE - 2] = (u8)sum; d[SAVE_SIZE - 1] = (u8)(sum >> 8);
-    SMS_disableSRAM();
+    SMS_disableSRAM(); __asm__("ei");
 }
 
 /* restores the saved world; the caller then loads level 0 at ret_px/ret_py */
@@ -305,7 +304,7 @@ static void load_game(void) {
     u16 i, o = 3;
     u8 *d;
     new_game_state();
-    SMS_enableSRAM();
+    __asm__("di"); SMS_enableSRAM();      /* the audio IRQ reads ROM through slot 2 */
     d = SMS_SRAM;
     health = d[o++]; keys = d[o++]; gems = d[o++]; knives = d[o++]; hijump = d[o++]; msg_shown = d[o++];
     score_lo = (u16)(d[o] | ((u16)d[o + 1] << 8)); o += 2;
@@ -315,7 +314,7 @@ static void load_game(void) {
     hub_n_ov = d[o++];
     for (i = 0; i < HUB_MAXO; i++) { hub_ot[i] = d[o++]; hub_ost[i] = d[o++]; hub_oct[i] = d[o++]; }
     for (i = 0; i < MAX_OV; i++) { hub_ov_cell[i] = (u16)(d[o] | ((u16)d[o + 1] << 8)); hub_ov_mt[i] = d[o + 2]; o += 3; }
-    SMS_disableSRAM();
+    SMS_disableSRAM(); __asm__("ei");
     hub_valid = 1;
     take_snapshot();
 }
@@ -355,7 +354,7 @@ static void ending_slides(void) {
     for (i = 0; i < 4; i++) {
         fade_to(3, 0);
         SMS_displayOff();
-        SMS_initSprites(); SMS_copySpritestoSAT();
+        SMS_initSprites(); SMS_copySpritestoSAT(); hud_spr_ok = 0;
         cam_x = sx0[i]; cam_y = 0;
         nt_tx = (u8)(cam_x >> 3); nt_ty = 0;
         draw_all();
