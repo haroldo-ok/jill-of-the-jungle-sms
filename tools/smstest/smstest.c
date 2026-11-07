@@ -412,6 +412,7 @@ int main(int argc, char** argv) {
         else if (!strcmp(c1, "rwatch") && n >= 4) { rw_lo = strtoul(c2, 0, 16); rw_hi = strtoul(c3, 0, 16); rw_n = strtoul(c4, 0, 0); }
         else if (!strcmp(c1, "profstart")) { prof_on = 1; memset(prof_cyc, 0, sizeof prof_cyc); }
         else if (!strcmp(c1, "profdump") && n >= 2) { FILE* pf = fopen(c2, "w"); prof_on = 0; for (int q = 0; q < 131072; q++) if (prof_cyc[q]) fprintf(pf, "%05X %lu\n", q, prof_cyc[q]); fclose(pf); }
+        else if (!strcmp(c1, "peek") && n >= 2) { uint16_t a = (uint16_t)strtoul(c2, 0, 16); printf("peek: %04X = %u\n", a, mem_read(NULL, a)); }
         else if (!strcmp(c1, "psgcount")) printf("psgcount: %lu (frame %lu)\n", psg_writes, frame_no);
         else if (!strcmp(c1, "psglog")) psg_log = 1;
         else if (!strcmp(c1, "pause")) cpu.nmi_pending = 1;
