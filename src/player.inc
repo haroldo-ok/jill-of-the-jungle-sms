@@ -18,6 +18,8 @@
 #define HEALTH_MAX 6
 
 u8 pw = 16, ph = 24;
+u8 hb = 2;                 /* collision box inset from each side of the 16-px frame (Jill: 12 px wide) */
+#define NUDGE 5            /* jumping into a ledge corner by up to this many px slides Jill past it */
 u8 fxr, fyr;
 u8 hurt_t, dead_t, form_t, blade_t, fire_cd, anim_t, crouch;
 u8 jump_held;
@@ -68,8 +70,20 @@ static u8 col_flags(int x) {          /* OR of tile flags on column x, over the 
     }
     return f;
 }
+static u8 row_flags_at(int x, int y) { /* OR of tile flags on row y, over the box width at frame x */
+    int e = x + pw - 1 - hb;
+    u8 f = 0;
+    x += hb;
+    for (;;) {
+        f |= flag_at(x, y);
+        if (x >= e) break;
+        x += 15;
+        if (x > e) x = e;
+    }
+    return f;
+}
 static u8 row_flags(int y) {          /* OR of tile flags on row y, over the box width */
-    int x = px, e = px + pw - 1;
+    int x = px + hb, e = px + pw - 1 - hb;
     u8 f = 0;
     for (;;) {
         f |= flag_at(x, y);
@@ -96,8 +110,18 @@ static u8 ground_below(void) {
 }
 
 static void move_x(int dx) {
-    while (dx > 0) { if (col_flags(px + pw) & MF_SOLID) { vx = 0; return; } px++; dx--; }
-    while (dx < 0) { if (col_flags(px - 1) & MF_SOLID) { vx = 0; return; } px--; dx++; }
+    while (dx > 0) { if (col_flags(px + pw - hb) & MF_SOLID) { vx = 0; return; } px++; dx--; }
+    while (dx < 0) { if (col_flags(px + hb - 1) & MF_SOLID) { vx = 0; return; } px--; dx++; }
+}
+/* the head bumps into a ceiling corner: if a few pixels sideways the way up is clear (a narrow
+   shaft), slide over instead of stopping */
+static u8 nudge_up(void) {
+    u8 k;
+    for (k = 1; k <= NUDGE; k++) {
+        if (!(row_flags_at(px + k, py - 1) & MF_SOLID) && !(col_flags(px + pw - 1 - hb + k) & MF_SOLID)) { px += k; return 1; }
+        if (!(row_flags_at(px - k, py - 1) & MF_SOLID) && !(col_flags(px + hb - k) & MF_SOLID)) { px -= k; return 1; }
+    }
+    return 0;
 }
 static void move_y(int dy) {
     while (dy > 0) {
@@ -105,7 +129,7 @@ static void move_y(int dy) {
         py++; dy--;
     }
     while (dy < 0) {
-        if (row_flags(py - 1) & MF_SOLID) { vy = 0; return; }
+        if ((row_flags(py - 1) & MF_SOLID) && !nudge_up()) { vy = 0; return; }
         py--; dy++;
     }
 }
@@ -132,10 +156,10 @@ static void set_form(u8 f) {
     form = f;
     form_t = 0; flop_t = 0;
     switch (f) {
-    case FORM_FROG:    pw = 14; ph = 10; break;
-    case FORM_PHOENIX: pw = 16; ph = 16; break;
-    case FORM_FISH:    pw = 24; ph = 12; break;
-    default:           pw = 16; ph = 24; break;
+    case FORM_FROG:    pw = 14; ph = 10; hb = 0; break;
+    case FORM_PHOENIX: pw = 16; ph = 16; hb = 1; break;
+    case FORM_FISH:    pw = 24; ph = 12; hb = 0; break;
+    default:           pw = 16; ph = 24; hb = 2; break;
     }
     py = bottom - ph;
     vx = vy = 0;
@@ -282,7 +306,12 @@ static void player_walk(void) {
     if (in_water) maxv = 300;
     ground = ground_below();
     if (ground && vy >= 0) { if (!on_ground) { if (vy > 700) sfx_play(SND_LAND); } on_ground = 1; vy = 0; }
-    else on_ground = 0;
+    else {
+        /* walked off an edge: start falling at once (1 px/frame), so a narrow hole catches Jill
+           before her momentum carries her over it */
+        if (on_ground && vy >= 0 && vy < 256 && !in_water && form != FORM_PHOENIX) vy = 256;
+        on_ground = 0;
+    }
 
     if (climbing) {
         vx = vy = 0;
@@ -292,8 +321,8 @@ static void player_walk(void) {
         } else if (ctl) {
             if (held & K_UP) { if (!(row_flags(py - 1) & MF_SOLID)) py--; }
             else if (held & K_DOWN) { if (!ground_below()) py++; else climbing = 0; }
-            if (held & K_LEFT)  { face_right = 0; if (!(col_flags(px - 1) & MF_SOLID) && (frame_ctr & 1)) px--; }
-            if (held & K_RIGHT) { face_right = 1; if (!(col_flags(px + pw) & MF_SOLID) && (frame_ctr & 1)) px++; }
+            if (held & K_LEFT)  { face_right = 0; if (!(col_flags(px + hb - 1) & MF_SOLID) && (frame_ctr & 1)) px--; }
+            if (held & K_RIGHT) { face_right = 1; if (!(col_flags(px + pw - hb) & MF_SOLID) && (frame_ctr & 1)) px++; }
             if (pressed & K_JUMP) { climbing = 0; vy = JUMP_V / 2; vx = (held & K_LEFT) ? -300 : (held & K_RIGHT) ? 300 : 0; jump_held = 1; sfx_play(SND_JUMP); }
             if (climbing) { anim_t++; return; }
         }
@@ -306,7 +335,16 @@ static void player_walk(void) {
     if (ctl) {
         acc = ground ? WALK_ACC : AIR_ACC;
         if (in_water) acc = 40;
-        if (ground && (held & K_DOWN) && form == FORM_HUMAN) { crouch = 1; }
+        if (ground && (held & K_DOWN) && form == FORM_HUMAN) {
+            crouch = 1;
+            if (!(held & (K_LEFT | K_RIGHT)) && !elev_below()) {      /* a narrow hole within reach: slide over */
+                u8 k;
+                for (k = 1; k <= 6; k++) {
+                    if (!(row_flags_at(px + k, py + ph) & (MF_SOLID | MF_PLAT)) && !(col_flags(px + pw - 1 - hb + 1) & MF_SOLID)) { px++; break; }
+                    if (!(row_flags_at(px - k, py + ph) & (MF_SOLID | MF_PLAT)) && !(col_flags(px + hb - 1) & MF_SOLID)) { px--; break; }
+                }
+            }
+        }
         if (!crouch && (held & K_LEFT)) {
             face_right = 0;
             vx -= acc; if (vx < -maxv) vx = -maxv;

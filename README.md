@@ -122,6 +122,12 @@ make playtest     # tests/playtest.txt: title, hub, pause/save, every level, dem
     Also fixed on the way: saving hung the game (the audio interrupt read slot 2 while SRAM was
     mapped there).
 
+11. **Jump/crouch frames and narrow shafts**: the jump and crouch poses were the mirror images
+    (frames 32.. face left, 40.. face right; 37 left, 45 right). Jill's collision box is now
+    12 px wide inside her 16-px frame; jumping into a ceiling corner by up to 5 px slides her
+    into the opening; she starts falling at once when she walks off an edge (so a one-tile hole
+    catches her); holding DOWN next to a narrow hole slides her over it.
+
 ## Known limitations
 
 * Not tested on real hardware. Busy scenes (e.g. level 3 with several lifts and a snake on

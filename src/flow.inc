@@ -129,9 +129,9 @@ static u8 jill_pose(void) {
     if (in_water) return 56 + ((anim_t >> 3) % 3);
     if (!on_ground) {
         if (vy < -200) f = 0; else if (vy < 200) f = 1; else f = 2;
-        return (face_right ? 32 : 40) + f;
+        return (face_right ? 40 : 32) + f;      /* 32.. face left, 40.. face right */
     }
-    if (crouch) return face_right ? 37 : 45;
+    if (crouch) return face_right ? 45 : 37;
     if (vx > 40 || vx < -40) return (face_right ? JILL_RUN_R : JILL_RUN_L) + ((anim_t >> 2) & 3);
     return 16 + ((frame_ctr >> 5) & 3 ? 0 : 0);
 }

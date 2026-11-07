@@ -42,6 +42,27 @@ poke px 112 w2
 poke py 190 w2
 run 120
 
+echo [2c] narrow shaft: a 1-tile hole carved in the hub floor (map overrides); walking over it drops Jill in
+poke ov_cell+0 1802
+poke ov_cell+2 1930
+poke ov_cell+4 2058
+poke ov_mt+0 8 w1
+poke ov_mt+1 8 w1
+poke ov_mt+2 8 w1
+poke n_ov 3 w1
+poke px 97 w2
+poke py 200 w2
+run 10
+hold right
+run 70
+hold none
+run 40
+expect py > 230 s16
+poke n_ov 0 w1
+poke px 112 w2
+poke py 190 w2
+run 60
+
 echo [3] pause menu opens, Save game writes SRAM, resume
 pause
 run 60
