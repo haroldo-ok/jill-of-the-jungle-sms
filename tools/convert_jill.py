@@ -408,7 +408,9 @@ def main():
     desc_rows = []
     for li, (name, m) in enumerate(zip(LEVELS, maps)):
         L = LevelBuild()
-        marks = find_markers(m, dma)
+        # The original draws every map cell: small groups of castle blocks in open space are
+        # stepping stones, not hidden monster markers (find_markers is kept for reference only).
+        marks = set()
         # -- objects pre-pass: alt tiles for doors/bridgers/falldoors ----------
         used_codes = set(m.codes)
         alt_code: Dict[int, int] = {}
