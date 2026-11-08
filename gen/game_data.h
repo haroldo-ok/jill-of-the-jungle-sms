@@ -126,8 +126,8 @@ typedef struct {
   const char *name;
 } LevelDesc;
 extern const LevelDesc level_descs[JILL_N_LEVELS];
-extern const unsigned char font1bpp[]; /* in bank 5 */
-#define FONT_BANK 5
+extern const unsigned char font1bpp[]; /* in bank 4 */
+#define FONT_BANK 4
 #define JILL_BANK 2
 extern const unsigned char jill_gfx[];
 extern const unsigned char jill_slot[JILL_N_FRAMES];

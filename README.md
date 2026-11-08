@@ -128,6 +128,10 @@ make playtest     # tests/playtest.txt: title, hub, pause/save, every level, dem
     into the opening; she starts falling at once when she walks off an edge (so a one-tile hole
     catches her); holding DOWN next to a narrow hole slides her over it.
 
+12. **Missing blocks**: small groups of castle blocks in open space were being treated as
+    hidden monster turn-around markers and made invisible and non-solid. They are real stepping
+    stones (map hub, level 1, level 2, level 9); every map cell is now drawn as in the original.
+
 ## Known limitations
 
 * Not tested on real hardware. Busy scenes (e.g. level 3 with several lifts and a snake on
